@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { LyricLine } from '@/types/lyrics';
 import { LyricLineItem } from './LyricLineItem';
 import { Music2 } from 'lucide-react';
+import { speakOriginalText, stopSpeaking } from '@/lib/utils/speech';
 
 export interface LyricViewProps {
   readonly lines: readonly LyricLine[];
   readonly activeLineIndex: number;
+  readonly language?: string;
   readonly onSeek: (seconds: number) => void;
   readonly onSelectForEdit?: (line: LyricLine) => void;
   readonly autoScrollEnabled?: boolean;
@@ -16,12 +18,40 @@ export interface LyricViewProps {
 export function LyricView({
   lines,
   activeLineIndex,
+  language,
   onSeek,
   onSelectForEdit,
   autoScrollEnabled = true,
 }: LyricViewProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const [speakingLineId, setSpeakingLineId] = useState<string | null>(null);
+
+  // Stop speech when unmounting or changing songs
+  useEffect(() => {
+    return () => {
+      stopSpeaking();
+    };
+  }, []);
+
+  const handleSpeakLine = (line: LyricLine): void => {
+    if (speakingLineId === line.id) {
+      stopSpeaking();
+      setSpeakingLineId(null);
+      return;
+    }
+
+    speakOriginalText(
+      line.originalText,
+      language,
+      () => setSpeakingLineId(line.id),
+      () => setSpeakingLineId(null),
+      (err) => {
+        console.warn('Speech playback notice:', err);
+        setSpeakingLineId(null);
+      }
+    );
+  };
 
   // Auto-scroll the active line into the vertical center of the container
   useEffect(() => {
@@ -73,7 +103,9 @@ export function LyricView({
               index={index}
               isActive={isActive}
               isPast={isPast}
+              isSpeaking={speakingLineId === line.id}
               onSeek={onSeek}
+              onSpeak={handleSpeakLine}
               onSelectForEdit={onSelectForEdit}
             />
           </div>

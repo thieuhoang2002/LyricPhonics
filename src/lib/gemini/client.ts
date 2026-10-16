@@ -23,5 +23,5 @@ export function getGeminiClient(): GoogleGenAI {
   return cachedClient;
 }
 
-export const GEMINI_AUDIO_MODEL = 'gemini-2.5-flash';
-export const GEMINI_FALLBACK_MODEL = 'gemini-2.0-flash';
+export const GEMINI_AUDIO_MODEL = 'gemini-3.5-flash';
+export const GEMINI_FALLBACK_MODEL = 'gemini-3.8-flash';

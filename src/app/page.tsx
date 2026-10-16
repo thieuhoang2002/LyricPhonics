@@ -312,6 +312,7 @@ export default function Home(): React.JSX.Element {
               <LyricView
                 lines={transcription?.lines || []}
                 activeLineIndex={activeLineIndex}
+                language={transcription?.metadata.detectedLanguage}
                 onSeek={(time) => player.seek(time)}
                 onSelectForEdit={(line) => setEditingLine(line)}
                 autoScrollEnabled={autoScroll}

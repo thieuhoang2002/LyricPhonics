@@ -3,14 +3,16 @@
 import React from 'react';
 import type { LyricLine } from '@/types/lyrics';
 import { formatDisplayTime } from '@/lib/utils/time';
-import { Play } from 'lucide-react';
+import { Play, Volume2 } from 'lucide-react';
 
 export interface LyricLineItemProps {
   readonly line: LyricLine;
   readonly index: number;
   readonly isActive: boolean;
   readonly isPast: boolean;
+  readonly isSpeaking?: boolean;
   readonly onSeek: (seconds: number) => void;
+  readonly onSpeak?: (line: LyricLine) => void;
   readonly onSelectForEdit?: (line: LyricLine) => void;
 }
 
@@ -18,7 +20,9 @@ export function LyricLineItem({
   line,
   isActive,
   isPast,
+  isSpeaking = false,
   onSeek,
+  onSpeak,
   onSelectForEdit,
 }: LyricLineItemProps): React.JSX.Element {
   return (
@@ -59,13 +63,36 @@ export function LyricLineItem({
         </button>
       </div>
 
-      {/* Layer 1: Original Language Lyrics */}
-      <div
-        className={`text-lg md:text-xl font-medium tracking-wide mb-1 transition-colors ${
-          isActive ? 'text-white font-bold' : 'text-slate-200'
-        }`}
-      >
-        {line.originalText}
+      {/* Layer 1: Original Language Lyrics & Native Pronunciation */}
+      <div className="flex items-center gap-2.5 mb-1 flex-wrap">
+        <span
+          className={`text-lg md:text-xl font-medium tracking-wide transition-colors ${
+            isActive ? 'text-white font-bold' : 'text-slate-200'
+          }`}
+        >
+          {line.originalText}
+        </span>
+
+        {onSpeak && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSpeak(line);
+            }}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs transition-all duration-200 border ${
+              isSpeaking
+                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/50 shadow-sm shadow-cyan-500/30 animate-pulse'
+                : 'bg-slate-800/60 text-slate-400 border-slate-700/50 hover:text-cyan-300 hover:border-cyan-500/40 hover:bg-slate-800'
+            }`}
+            title="Nhấp để nghe phát âm giọng bản xứ chuẩn"
+          >
+            <Volume2 className={`w-3.5 h-3.5 ${isSpeaking ? 'text-cyan-300' : 'text-slate-400'}`} />
+            <span className="text-[11px] font-sans">
+              {isSpeaking ? 'Đang đọc...' : 'Phát âm'}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Layer 2: Vietnamese Phonetic Cover Pronunciation */}
