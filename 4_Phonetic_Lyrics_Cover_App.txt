@@ -1,0 +1,60 @@
+================================================================================
+Y TUONG 4: PHONETIK - WEB PHIEN AM LOI BAI HAT QUOC TE SANG TIENG VIET DE COVER
+================================================================================
+
+1. TONG QUAN & DINH VI:
+- Ten du an goi y: LyricPhonics 
+- Dinh vi: Web app giup nguoi yeu am nhac, TikToker, ca si cover co the hat bat ky bai hat nuoc ngoai nao (Trung, Han, Nhat, Anh, Thai) bang cach tu dong dich phien am cach doc sang tieng Viet chuan nhip dieu.
+- Khach hang muc tieu:
+  + Dan thich hat Karaoke, hat Cover tren TikTok, Facebook Reels, YouTube.
+  + Cac ban tre me nhac Kpop, nhac Anime/Jpop, nhac TikTok Trung Quoc nhung khong biet ngon ngu goc.
+  + Content Creator lam video cover am nhac.
+
+2. NOI DAU THI TRUONG:
+- Luot TikTok nghe thay 1 bai hat tieng Trung/Han/Nhat cuc cuon, muon hat theo nhung khong the nho noi Pinyin hoac cach phat am.
+- Len mang tim kiem "loi boi" thi bai co bai khong, nhieu bai moi ra chua ai lam, hoac phien am lung tung khong khop nhip bai hat.
+- Hien tai tren thi truong CHUA CO bat ky cong cu tu dong hoa nao cho phep up file am thanh len de nhan ve loi phien am tieng Viet chuan nhip.
+
+3. CO CHE HOAT DONG & TINH NANG MVP (2 - 3 NGAY CODE):
+- Input linh hoat:
+  + Upload truc tiep file MP4 (video TikTok, video quay man hinh) hoac file MP3, M4A, WAV.
+  + (Mo rong sau nay): Dan link video TikTok / YouTube Shorts.
+- AI Multimodal Audio Engine (Gemini Flash Lite Architecture):
+  + Gui truc tiep audio vao Gemini API.
+  + Prompt chuyen biet yeu cau AI:
+    1. Nghe va tach loi bai hat theo dung nhip ngat nghi (Line-by-line).
+    2. Xuat song ngu:
+       - Dong 1: Loi goc (Chữ Han / Hangul / Kanji / English).
+       - Dong 2: Phien am phat am theo kieu Tieng Viet (VD: "Wo ai ni" -> "Ủa ai nỉ").
+       - Dong 3 (Optional): Nghia tieng Viet tom tat.
+- Trinh phat nhac & Soan thao truc quan (Lyric Player & Editor):
+  + Trinh phat audio tich hop giup nguoi dung vua nghe nhac vua do tung dong loi.
+  + Nguoi dung co the click truc tiep vao tung dong de sua lai theo y minh neu muon.
+- Xuat file 1-Click:
+  + Nut "Copy vao bo nho tam" (Clipboard).
+  + Nut "Tai xuong file .txt" format sach se, co the in hoac mo tren dien thoai.
+  + (Nang cao): Xuat file .lrc / .srt de dung lam phu de video.
+
+4. TECH STACK & AI ENGINE (TOI UU CHI PHI 0 DONG):
+- Frontend: Next.js (App Router), Tailwind CSS, Lucide-react.
+- Audio Player: Howler.js hoac HTML5 Audio tieu chuan.
+- Core AI Engine: **Gemini 3.1 Flash Lite**
+  + Ly do chon Flash Lite:
+    * Toc do phan hoi sieu toc (Sub-second / Stream truc tiep), nguoi dung khong phai cho doi.
+    * Chi phi token re hon 3-4 lan so voi ban Flash thuong -> 1 bai hat chi ton vai chuc dong VNĐ!
+    * Lai rong khi thu phi nguoi dung dat > 98%.
+  + Chien luoc Smart Routing (Dieu phoi thong minh):
+    * Mac dinh (Tier Free & Standard): Chay bang **Gemini 3.1 Flash Lite** de tiet kiem toi da chi phi.
+    * Nang cao (Tier VIP / Deep Scan): Tuy chon bat **Gemini Flash Standard** danh cho cac bai hat co beat nhac qua to, tap am nhieu, hoac ca si hat luyen lay qua nhanh.
+- Database: Supabase de luu lich su chuyen doi va quan ly tai khoan nguoi dung.
+- Thanh toan (Monetization): VietQR (SePay / Casso) de nhan tien chuyen khoan tu dong 24/7.
+
+5. MO HINH THU TIEN:
+- Freemium: Cho moi nguoi chuyen doi mien phi 2 bai hat moi ngay (do dai duoi 3 phut) bang Gemini Flash Lite.
+- Goi VIP theo luot: 2.000d - 5.000d / bai (quet ma QR chuyen khoan la mo khoa ngay).
+- Goi VIP theo thang: 49.000d / thang (khong gioi han so luot, ho tro file dai 10 phut, xuat file .lrc).
+
+6. CHIEN LUOC VIRAL 0 DONG CUC MANH:
+- Ban chinh la mot dev biet hat va rap!
+- Quay video TikTok: "Cach minh hat tron ven bai nhac Trung Quoc dang trend chi sau 30 giay bang tool tu viet".
+- Dang video cover len kem link web o bio -> Keo hang chuc ngan luot truy cap tu nhien ma khong mat 1 dong tien quang cao.

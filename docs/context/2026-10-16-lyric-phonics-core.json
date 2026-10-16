@@ -1,0 +1,18 @@
+{
+  "taskId": "2026-10-16-lyric-phonics-core",
+  "project": "LyricPhonics",
+  "description": "Web app phiên âm lời bài hát quốc tế sang tiếng Việt để hát cover bằng Gemini Multimodal Audio",
+  "confirmedAssumptions": [
+    "Greenfield project, chưa có mã nguồn ban đầu ngoài file ý tưởng 4_Phonetic_Lyrics_Cover_App.txt",
+    "Phase 1 tập trung Core MVP: Upload Audio/Video -> Gemini Audio Engine -> Player/Editor đồng bộ timestamp -> Xuất TXT/LRC/Clipboard",
+    "Database (Supabase), Auth và Cổng thanh toán VietQR dành cho Phase 2",
+    "Gemini API trả về structured JSON có timestamp [startTime, endTime] cho từng câu để đồng bộ audio player và xuất file karaoke LRC"
+  ],
+  "architecture": {
+    "framework": "Next.js 14/15 App Router",
+    "styling": "Tailwind CSS + Lucide React icons",
+    "audio": "HTML5 Audio API hoặc Howler.js với custom hook useAudioSync",
+    "aiEngine": "@google/genai SDK (Gemini 2.5 Flash Lite / Gemini 2.0 Flash) với responseSchema",
+    "export": "Client-side export TXT, LRC, SRT, Clipboard"
+  }
+}
