@@ -18,6 +18,11 @@ public class TrackEntity
     public double Duration { get; set; }
     
     /// <summary>
+    /// ID người dùng sở hữu bài hát (nếu đã đăng nhập)
+    /// </summary>
+    public Guid? UserId { get; set; }
+
+    /// <summary>
     /// Chuỗi JSON của mảng LyricLine (được lưu dưới dạng cột jsonb trong Postgres)
     /// </summary>
     public string LinesJson { get; set; } = "[]";

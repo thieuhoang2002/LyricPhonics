@@ -72,6 +72,7 @@ public static class DependencyInjection
             });
 
             services.AddScoped<ITrackRepository, TrackRepository>();
+            services.AddScoped<IUserRepository, UserRepository>();
         }
 
         // 4. Đăng ký PhonicsRegenerationService (Groq AI & Gemini Fallback)
@@ -79,6 +80,14 @@ public static class DependencyInjection
         {
             client.Timeout = TimeSpan.FromSeconds(30);
         });
+
+        // 5. Đăng ký Turnstile, Auth và Admin services
+        services.AddHttpClient<ITurnstileService, TurnstileService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(10);
+        });
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IAdminService, AdminService>();
 
         return services;
     }

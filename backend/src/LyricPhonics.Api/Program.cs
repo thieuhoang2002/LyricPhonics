@@ -78,10 +78,13 @@ app.MapGet("/", () => Results.Ok(new
 .WithTags("Health")
 .ExcludeFromDescription();
 
-// Đăng ký các endpoints bóc tách âm thanh, tái tạo phiên âm và quản lý bài hát
+// Đăng ký các endpoints bóc tách âm thanh, tái tạo phiên âm, quản lý bài hát, xác thực và admin
 app.MapTranscribeEndpoints();
 app.MapPhonicsEndpoints();
 app.MapTrackEndpoints();
+app.MapAuthEndpoints();
+app.MapAdminEndpoints();
+app.MapPricingEndpoints();
 
 // Tự động kiểm tra và khởi tạo bảng PostgreSQL (Neon DB) nếu đã cấu hình
 using (var scope = app.Services.CreateScope())

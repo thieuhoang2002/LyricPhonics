@@ -11,6 +11,7 @@ export interface AudioPlayerState {
   readonly playbackRate: PlaybackRate;
   readonly volume: number;
   readonly isMuted: boolean;
+  readonly isLooping: boolean;
   readonly isLoaded: boolean;
   readonly error: string | null;
 }
@@ -23,6 +24,7 @@ export interface AudioPlayerControls {
   readonly setPlaybackRate: (rate: PlaybackRate) => void;
   readonly setVolume: (volume: number) => void;
   readonly toggleMute: () => void;
+  readonly toggleLoop: () => void;
   readonly loadAudio: (urlOrBlob: string | Blob) => void;
   readonly reset: () => void;
 }
@@ -44,8 +46,15 @@ export function useAudioPlayer(initialUrl?: string | null): UseAudioPlayerReturn
   const [playbackRate, setPlaybackRateState] = useState<PlaybackRate>(1.0);
   const [volume, setVolumeState] = useState<number>(1.0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isLooping, setIsLooping] = useState<boolean>(false);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // References to keep setupAudio pure and prevent reloading audio when settings change
+  const playbackRateRef = useRef<PlaybackRate>(1.0);
+  const volumeRef = useRef<number>(1.0);
+  const isMutedRef = useRef<boolean>(false);
+  const isLoopingRef = useRef<boolean>(false);
 
   // Sync animation frame loop for 60fps smooth playback time tracking
   const startRafLoop = useCallback(() => {
@@ -83,8 +92,9 @@ export function useAudioPlayer(initialUrl?: string | null): UseAudioPlayerReturn
 
     const audio = new Audio(url);
     audio.preload = 'auto';
-    audio.playbackRate = playbackRate;
-    audio.volume = isMuted ? 0 : volume;
+    audio.playbackRate = playbackRateRef.current;
+    audio.loop = isLoopingRef.current;
+    audio.volume = isMutedRef.current ? 0 : volumeRef.current;
     audioRef.current = audio;
 
     setIsLoaded(false);
@@ -110,10 +120,12 @@ export function useAudioPlayer(initialUrl?: string | null): UseAudioPlayerReturn
     };
 
     const onEnded = (): void => {
-      setIsPlaying(false);
-      stopRafLoop();
-      if (audioRef.current) {
-        setCurrentTime(audioRef.current.duration || 0);
+      if (!isLoopingRef.current) {
+        setIsPlaying(false);
+        stopRafLoop();
+        if (audioRef.current) {
+          setCurrentTime(audioRef.current.duration || 0);
+        }
       }
     };
 
@@ -136,7 +148,7 @@ export function useAudioPlayer(initialUrl?: string | null): UseAudioPlayerReturn
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('error', onError);
     };
-  }, [playbackRate, volume, isMuted, startRafLoop, stopRafLoop]);
+  }, [startRafLoop, stopRafLoop]);
 
   // Load from initialUrl if provided
   useEffect(() => {
@@ -197,6 +209,7 @@ export function useAudioPlayer(initialUrl?: string | null): UseAudioPlayerReturn
   }, []);
 
   const setPlaybackRate = useCallback((rate: PlaybackRate): void => {
+    playbackRateRef.current = rate;
     setPlaybackRateState(rate);
     if (audioRef.current) {
       audioRef.current.playbackRate = rate;
@@ -205,21 +218,34 @@ export function useAudioPlayer(initialUrl?: string | null): UseAudioPlayerReturn
 
   const setVolume = useCallback((vol: number): void => {
     const clampedVol = Math.max(0, Math.min(1, vol));
+    volumeRef.current = clampedVol;
     setVolumeState(clampedVol);
     if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : clampedVol;
+      audioRef.current.volume = isMutedRef.current ? 0 : clampedVol;
     }
-  }, [isMuted]);
+  }, []);
 
   const toggleMute = useCallback((): void => {
     setIsMuted((prev) => {
       const nextMuted = !prev;
+      isMutedRef.current = nextMuted;
       if (audioRef.current) {
-        audioRef.current.volume = nextMuted ? 0 : volume;
+        audioRef.current.volume = nextMuted ? 0 : volumeRef.current;
       }
       return nextMuted;
     });
-  }, [volume]);
+  }, []);
+
+  const toggleLoop = useCallback((): void => {
+    setIsLooping((prev) => {
+      const nextLooping = !prev;
+      isLoopingRef.current = nextLooping;
+      if (audioRef.current) {
+        audioRef.current.loop = nextLooping;
+      }
+      return nextLooping;
+    });
+  }, []);
 
   const reset = useCallback((): void => {
     stopRafLoop();
@@ -242,6 +268,7 @@ export function useAudioPlayer(initialUrl?: string | null): UseAudioPlayerReturn
     playbackRate,
     volume,
     isMuted,
+    isLooping,
     isLoaded,
     error,
     play,
@@ -251,6 +278,7 @@ export function useAudioPlayer(initialUrl?: string | null): UseAudioPlayerReturn
     setPlaybackRate,
     setVolume,
     toggleMute,
+    toggleLoop,
     loadAudio,
     reset,
   };

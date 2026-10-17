@@ -124,45 +124,45 @@ export function AudioDropzone({
         }}
         className={`relative flex flex-col items-center justify-center p-8 md:p-12 border-2 border-dashed rounded-3xl transition-all duration-200 cursor-pointer text-center select-none ${
           isDragOver
-            ? 'border-cyan-400 bg-cyan-500/10 scale-[1.01]'
-            : 'border-slate-800 hover:border-slate-700 bg-slate-900/40 hover:bg-slate-900/60'
+            ? 'border-[#2836f7] bg-[#2836f7]/10 scale-[1.01]'
+            : 'border-[#262629] hover:border-[#2836f7]/50 bg-[#141416] hover:bg-[#18181b]'
         } ${isProcessing ? 'pointer-events-none opacity-80' : ''}`}
       >
         {isProcessing ? (
           <div className="flex flex-col items-center py-4">
             <div className="relative mb-4">
-              <div className="w-16 h-16 rounded-full bg-cyan-500/10 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+              <div className="w-16 h-16 rounded-full bg-[#2836f7]/20 flex items-center justify-center text-[#424ef5]">
+                <Loader2 className="w-8 h-8 animate-spin" />
               </div>
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">
               Gemini AI đang lắng nghe và bóc tách bài hát...
             </h3>
-            <p className="text-xs text-slate-400 max-w-md">
-              Hệ thống đang trích xuất nhịp phách, phiên âm tiếng Việt chuẩn nhịp và dịch nghĩa từng câu.
+            <p className="text-xs text-zinc-400 max-w-md">
+              Hệ thống đang trích xuất nhịp phách, phiên âm quốc tế và lời bồi theo ngôn ngữ bạn đã chọn.
             </p>
           </div>
         ) : (
           <div className="flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-cyan-500/10 text-cyan-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <div className="w-16 h-16 rounded-full bg-[#2836f7]/15 text-[#424ef5] flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-md shadow-[#2836f7]/20">
               <UploadCloud className="w-8 h-8" />
             </div>
 
             <h3 className="text-lg font-semibold text-white mb-1">
               Kéo thả file âm thanh hoặc video vào đây
             </h3>
-            <p className="text-sm text-slate-400 mb-4">
-              hoặc <span className="text-cyan-400 underline font-medium">duyệt tìm file</span> từ thiết bị của bạn
+            <p className="text-sm text-zinc-400 mb-4">
+              hoặc <span className="text-[#424ef5] underline font-medium">duyệt tìm file</span> từ thiết bị của bạn
             </p>
 
-            <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
-              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-800/60">
-                <Music className="w-3.5 h-3.5 text-cyan-400" /> MP3, WAV, M4A
+            <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-zinc-500">
+              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#1e1e22] text-zinc-300">
+                <Music className="w-3.5 h-3.5 text-[#424ef5]" /> MP3, WAV, M4A
               </span>
-              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-800/60">
+              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#1e1e22] text-zinc-300">
                 <FileVideo className="w-3.5 h-3.5 text-amber-400" /> MP4 Video TikTok
               </span>
-              <span className="px-2.5 py-1 rounded-full bg-slate-800/60">
+              <span className="px-2.5 py-1 rounded-full bg-[#1e1e22] text-zinc-300">
                 Tối đa 25MB
               </span>
             </div>

@@ -45,6 +45,48 @@ public static class TranscribeEndpoints
             IServiceProvider serviceProvider,
             CancellationToken cancellationToken) =>
         {
+            // 0. Xác thực tài khoản người dùng & kiểm tra số lượt bài hát (Credits)
+            var authService = serviceProvider.GetRequiredService<IAuthService>();
+            var userRepository = serviceProvider.GetService<IUserRepository>();
+
+            Guid? userId = null;
+            if (request.Headers.TryGetValue("Authorization", out var authHeader))
+            {
+                userId = authService.ValidateToken(authHeader.ToString());
+            }
+
+            if (userId == null)
+            {
+                return Results.Json(new
+                {
+                    success = false,
+                    error = "AUTH_REQUIRED",
+                    message = "Vui lòng đăng nhập tài khoản để tạo và lưu lời bài hát."
+                }, statusCode: 401);
+            }
+
+            var user = userRepository != null ? await userRepository.GetByIdAsync(userId.Value, cancellationToken) : null;
+            if (user == null)
+            {
+                return Results.Json(new
+                {
+                    success = false,
+                    error = "USER_NOT_FOUND",
+                    message = "Tài khoản không tồn tại trong hệ thống."
+                }, statusCode: 401);
+            }
+
+            if (user.SongCredits <= 0)
+            {
+                return Results.Json(new
+                {
+                    success = false,
+                    error = "OUT_OF_CREDITS",
+                    message = "Bạn đã sử dụng hết lượt tạo bài hát (còn 0 lượt). Vui lòng mua thêm gói để tiếp tục!",
+                    songCredits = 0
+                }, statusCode: 403);
+            }
+
             if (!request.HasFormContentType)
             {
                 return Results.BadRequest(new
@@ -134,6 +176,7 @@ public static class TranscribeEndpoints
                 {
                     var saved = await trackRepository.SaveTrackAsync(new LyricPhonics.Domain.Entities.TrackEntity
                     {
+                        UserId = userId,
                         Title = result.Metadata.Title ?? Path.GetFileNameWithoutExtension(file.FileName),
                         Artist = result.Metadata.Artist ?? "Unknown Artist",
                         FileName = file.FileName,
@@ -152,11 +195,19 @@ public static class TranscribeEndpoints
                 }
             }
 
-            // 6. Trả về kết quả JSON theo định dạng chuẩn mà Frontend mong đợi
+            // 6. Trừ 1 lượt bài hát của người dùng
+            int remainingCredits = user.SongCredits - 1;
+            if (userRepository != null)
+            {
+                await userRepository.DeductCreditAsync(userId.Value, cancellationToken);
+            }
+
+            // 7. Trả về kết quả JSON theo định dạng chuẩn mà Frontend mong đợi
             return Results.Ok(new
             {
                 success = true,
                 trackId = savedTrackId,
+                songCredits = Math.Max(0, remainingCredits),
                 metadata = result.Metadata,
                 lines = result.Lines
             });

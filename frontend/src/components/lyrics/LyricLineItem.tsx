@@ -31,18 +31,18 @@ export function LyricLineItem({
       onDoubleClick={() => onSelectForEdit?.(line)}
       className={`group relative flex flex-col p-4 md:p-5 rounded-2xl transition-all duration-300 cursor-pointer border select-none ${
         isActive
-          ? 'bg-gradient-to-r from-cyan-950/60 to-slate-900 border-cyan-500/60 shadow-lg shadow-cyan-950/50 scale-[1.01]'
+          ? 'bg-[#1a1a1c] border-[#2836f7] shadow-lg shadow-[#2836f7]/20 scale-[1.01]'
           : isPast
-          ? 'bg-slate-950/40 border-slate-900/60 opacity-60 hover:opacity-100 hover:border-slate-800'
-          : 'bg-slate-900/30 border-slate-800/60 hover:border-slate-700 hover:bg-slate-900/60'
+          ? 'bg-[#111112]/50 border-[#222224]/40 opacity-60 hover:opacity-100 hover:border-[#2a2a2e]'
+          : 'bg-[#171718]/70 border-[#222224] hover:border-[#2836f7]/50 hover:bg-[#1a1a1c]'
       }`}
     >
       <div className="flex items-center justify-between gap-3 mb-1.5">
         <span
           className={`text-[11px] font-mono px-2 py-0.5 rounded-md transition-colors ${
             isActive
-              ? 'bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/30'
-              : 'bg-slate-800/80 text-slate-400'
+              ? 'bg-[#2836f7]/20 text-[#424ef5] font-semibold border border-[#2836f7]/40'
+              : 'bg-[#222224] text-zinc-400'
           }`}
         >
           {formatDisplayTime(line.startTime)} - {formatDisplayTime(line.endTime)}
@@ -55,7 +55,7 @@ export function LyricLineItem({
             onSeek(line.startTime);
           }}
           className={`opacity-0 group-hover:opacity-100 p-1 rounded-full transition-opacity ${
-            isActive ? 'opacity-100 text-cyan-400' : 'text-slate-400 hover:text-white'
+            isActive ? 'opacity-100 text-[#424ef5]' : 'text-zinc-400 hover:text-white'
           }`}
           title="Nhảy đến đoạn này"
         >

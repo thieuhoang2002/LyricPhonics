@@ -29,7 +29,19 @@ import {
   Info,
   FolderHeart,
   CheckCircle2,
+  LogIn,
+  LogOut,
+  Zap,
+  User,
 } from 'lucide-react';
+import { AuthModal } from '@/components/auth/AuthModal';
+import { PricingModal } from '@/components/pricing/PricingModal';
+import {
+  fetchCurrentUser,
+  getAuthToken,
+  clearAuthToken,
+  type UserProfile,
+} from '@/lib/auth/authStore';
 
 export default function Home(): React.JSX.Element {
   const [file, setFile] = useState<File | null>(null);
@@ -39,6 +51,11 @@ export default function Home(): React.JSX.Element {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [editingLine, setEditingLine] = useState<LyricLine | null>(null);
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
+
+  // User Auth & Credits state
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState<boolean>(false);
 
   // Global Target Language state
   const [targetLanguage, setTargetLanguage] = useState<SupportedLanguage>('vi');
@@ -71,6 +88,13 @@ export default function Home(): React.JSX.Element {
         else setTargetLanguage('vi');
       }
     }
+  }, []);
+
+  // Tải thông tin người dùng từ token nếu đã đăng nhập
+  useEffect(() => {
+    fetchCurrentUser().then((u) => {
+      if (u) setCurrentUser(u);
+    });
   }, []);
 
   const handleLanguageChange = (lang: SupportedLanguage) => {
@@ -113,6 +137,21 @@ export default function Home(): React.JSX.Element {
   // Xử lý khi người dùng tải file lên và gọi API phân tích AI
   const handleFileSelected = useCallback(
     async (selectedFile: File, objectUrl: string): Promise<void> => {
+      // 1. Yêu cầu đăng nhập trước khi tạo bài hát
+      const token = getAuthToken();
+      if (!token || !currentUser) {
+        setIsAuthModalOpen(true);
+        setErrorMessage('Vui lòng đăng nhập hoặc đăng ký tài khoản (tặng ngay 2 bài miễn phí) để bắt đầu.');
+        return;
+      }
+
+      // 2. Chặn đứng nếu số lượt về 0 và mở modal mua gói
+      if (currentUser.songCredits <= 0) {
+        setIsPricingModalOpen(true);
+        setErrorMessage('Bạn đã sử dụng hết lượt tạo bài hát. Vui lòng nạp thêm gói để tiếp tục sáng tạo!');
+        return;
+      }
+
       setFile(selectedFile);
       setAudioUrl(objectUrl);
       currentBlobRef.current = selectedFile;
@@ -130,13 +169,33 @@ export default function Home(): React.JSX.Element {
 
         const response = await fetch(apiUrl, {
           method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
           body: formData,
         });
 
         const data = await response.json();
 
+        if (response.status === 401) {
+          clearAuthToken();
+          setCurrentUser(null);
+          setIsAuthModalOpen(true);
+          throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        }
+
+        if (response.status === 403 || data.error === 'OUT_OF_CREDITS') {
+          setIsPricingModalOpen(true);
+          throw new Error(data.message || 'Bạn đã sử dụng hết lượt tạo bài hát (còn 0 lượt). Vui lòng mua thêm gói.');
+        }
+
         if (!response.ok || !data.success) {
           throw new Error(data.error || 'Quá trình bóc tách lời bài hát gặp lỗi.');
+        }
+
+        // Cập nhật số lượt bài hát còn lại
+        if (data.songCredits != null) {
+          setCurrentUser((prev) => prev ? { ...prev, songCredits: data.songCredits } : prev);
         }
 
         const result: TranscriptionResult = {
@@ -176,7 +235,7 @@ export default function Home(): React.JSX.Element {
         setIsProcessing(false);
       }
     },
-    [targetLanguage]
+    [targetLanguage, currentUser]
   );
 
   // Mở bài hát mẫu demo
@@ -325,21 +384,21 @@ export default function Home(): React.JSX.Element {
   const hasLyrics = Boolean(transcription && transcription.lines.length > 0);
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100 selection:bg-cyan-500/20 selection:text-cyan-300">
+    <div className="flex min-h-screen flex-col bg-[#111112] text-zinc-100 selection:bg-[#2836f7]/30 selection:text-white">
       {/* Top Navigation */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-800/80 bg-slate-950/80 px-4 py-3 md:px-8 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#222224] bg-[#111112]/90 px-4 py-3 md:px-8 backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-sky-400 flex items-center justify-center text-slate-950 shadow-md shadow-cyan-500/20">
+          <div className="w-9 h-9 rounded-xl bg-[#2836f7] hover:bg-[#424ef5] flex items-center justify-center text-white shadow-md shadow-[#2836f7]/25 transition-colors">
             <Mic className="w-5 h-5 font-bold" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold tracking-tight text-white text-base">LyricPhonics</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-semibold">
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#2836f7]/15 text-[#424ef5] border border-[#2836f7]/30 font-semibold">
                 Global Phonics Cover
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 hidden sm:block">
+            <p className="text-[11px] text-zinc-400 hidden sm:block">
               {t.appSubtitle}
             </p>
           </div>
@@ -352,11 +411,61 @@ export default function Home(): React.JSX.Element {
             onLanguageChange={handleLanguageChange}
           />
 
+          {/* Hiển thị số lượt bài hát (Credits) & Nâng cấp gói */}
+          {currentUser ? (
+            <button
+              type="button"
+              onClick={() => setIsPricingModalOpen(true)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm ${
+                currentUser.songCredits > 0
+                  ? 'bg-[#2836f7]/20 text-[#424ef5] border border-[#2836f7]/40 hover:bg-[#2836f7]/30'
+                  : 'bg-rose-500/20 text-rose-400 border border-rose-500/40 hover:bg-rose-500/30 animate-pulse'
+              }`}
+              title="Nhấn để xem bảng giá và nạp thêm lượt"
+            >
+              <Zap className="w-3.5 h-3.5 fill-current" />
+              <span>
+                {currentUser.songCredits > 0
+                  ? `${currentUser.songCredits} lượt còn lại`
+                  : '0 lượt - Mua gói'}
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#2836f7] hover:bg-[#424ef5] text-white flex items-center gap-1.5 transition-colors shadow-md shadow-[#2836f7]/25"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Đăng nhập / Đăng ký</span>
+            </button>
+          )}
+
+          {/* Menu tài khoản / Đăng xuất */}
+          {currentUser && (
+            <div className="flex items-center gap-1.5 pl-1">
+              <span className="text-xs text-zinc-400 font-medium hidden md:inline max-w-[120px] truncate" title={currentUser.email}>
+                {currentUser.email.split('@')[0]}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  clearAuthToken();
+                  setCurrentUser(null);
+                }}
+                className="p-1.5 rounded-xl text-zinc-400 hover:text-rose-400 hover:bg-[#222224] transition-colors"
+                title="Đăng xuất"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Nút mở thư viện bài hát đã lưu */}
           <button
             type="button"
             onClick={() => setIsProjectsModalOpen(true)}
-            className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 border border-slate-800 text-slate-300 hover:text-cyan-300 hover:border-slate-700 flex items-center gap-1.5 transition-colors shadow-sm"
+            className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[#161618] border border-[#262629] text-zinc-300 hover:text-white hover:border-zinc-500 flex items-center gap-1.5 transition-colors shadow-sm"
             title={t.libraryButton}
           >
             <FolderHeart className="w-3.5 h-3.5 text-rose-400" />
@@ -405,7 +514,7 @@ export default function Home(): React.JSX.Element {
       </header>
 
       {/* Main Workspace Area */}
-      <main className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-6 pb-28 flex flex-col justify-center">
+      <main className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-6 pb-48 flex flex-col justify-center">
         {!hasLyrics ? (
           /* Upload & Empty View */
           <div className="flex flex-col items-center justify-center my-auto py-10">
@@ -515,6 +624,23 @@ export default function Home(): React.JSX.Element {
         onSelectProject={handleSelectSavedProject}
         onSelectCloudTrack={handleSelectCloudTrack}
         currentProjectId={currentProjectId}
+      />
+
+      {/* Modal Đăng nhập / Đăng ký */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          setErrorMessage(null);
+        }}
+      />
+
+      {/* Modal Mua thêm lượt bài hát & Donate */}
+      <PricingModal
+        isOpen={isPricingModalOpen}
+        onClose={() => setIsPricingModalOpen(false)}
+        userEmail={currentUser?.email}
       />
     </div>
   );
