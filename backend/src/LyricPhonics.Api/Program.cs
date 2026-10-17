@@ -2,6 +2,7 @@ using LyricPhonics.Api.Endpoints;
 using LyricPhonics.Api.Middleware;
 using LyricPhonics.Application;
 using LyricPhonics.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -99,7 +100,81 @@ using (var scope = app.Services.CreateScope())
         try
         {
             await dbContext.Database.EnsureCreatedAsync();
-            app.Logger.LogInformation("Đã kết nối thành công tới PostgreSQL (Neon DB) và đồng bộ cấu trúc bảng.");
+
+            const string initSql = @"
+CREATE TABLE IF NOT EXISTS tracks (
+    ""Id"" UUID PRIMARY KEY,
+    ""Title"" VARCHAR(255) NOT NULL,
+    ""Artist"" VARCHAR(255),
+    ""FileName"" VARCHAR(500),
+    ""DetectedLanguage"" VARCHAR(50),
+    ""TargetLanguage"" VARCHAR(50),
+    ""Duration"" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    ""UserId"" UUID,
+    ""AudioUrl"" VARCHAR(1000),
+    ""AudioStorageKey"" VARCHAR(500),
+    ""LinesJson"" jsonb,
+    ""CreatedAt"" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    ""UpdatedAt"" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS users (
+    ""Id"" UUID PRIMARY KEY,
+    ""Email"" VARCHAR(255) UNIQUE NOT NULL,
+    ""PasswordHash"" TEXT NOT NULL,
+    ""RegistrationIp"" VARCHAR(100),
+    ""SongCredits"" INT NOT NULL DEFAULT 2,
+    ""TotalSongsCreated"" INT NOT NULL DEFAULT 0,
+    ""IsAdmin"" BOOLEAN NOT NULL DEFAULT FALSE,
+    ""CreatedAt"" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    ""LastLoginAt"" TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS pricing_tiers (
+    ""Id"" UUID PRIMARY KEY,
+    ""Name"" VARCHAR(100) NOT NULL,
+    ""PriceUsd"" NUMERIC(10,2) NOT NULL,
+    ""SongCount"" INT NOT NULL,
+    ""DiscountPercent"" INT NOT NULL DEFAULT 0,
+    ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+    ""CreatedAt"" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS api_keys (
+    ""Id"" UUID PRIMARY KEY,
+    ""Provider"" VARCHAR(50) NOT NULL,
+    ""KeyValue"" TEXT NOT NULL,
+    ""Status"" VARCHAR(50) NOT NULL DEFAULT 'Healthy',
+    ""LatencyMs"" INT NOT NULL DEFAULT 0,
+    ""LastCheckedAt"" TIMESTAMP WITH TIME ZONE,
+    ""CreatedAt"" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS admin_securities (
+    ""Id"" UUID PRIMARY KEY,
+    ""Ciphertext"" TEXT NOT NULL,
+    ""Salt"" TEXT NOT NULL,
+    ""Iv"" TEXT NOT NULL,
+    ""Tag"" TEXT NOT NULL,
+    ""Hint"" VARCHAR(500),
+    ""UpdatedAt"" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tracks' AND column_name='AudioUrl') THEN
+        ALTER TABLE tracks ADD COLUMN ""AudioUrl"" VARCHAR(1000);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tracks' AND column_name='AudioStorageKey') THEN
+        ALTER TABLE tracks ADD COLUMN ""AudioStorageKey"" VARCHAR(500);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tracks' AND column_name='UserId') THEN
+        ALTER TABLE tracks ADD COLUMN ""UserId"" UUID;
+    END IF;
+END $$;
+";
+            await dbContext.Database.ExecuteSqlRawAsync(initSql);
+            app.Logger.LogInformation("Đã kết nối thành công tới PostgreSQL (Neon DB) và đồng bộ đầy đủ cấu trúc 5 bảng.");
         }
         catch (Exception ex)
         {

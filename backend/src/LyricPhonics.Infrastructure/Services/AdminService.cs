@@ -95,13 +95,39 @@ public class AdminService : IAdminService
         }
 
         // Lấy hoặc khởi tạo cấu hình Lớp 2 (Web Crypto) nếu chưa có
-        var security = await _dbContext.AdminSecurities.FirstOrDefaultAsync(cancellationToken);
+        AdminSecurityEntity? security = null;
+        try
+        {
+            security = await _dbContext.AdminSecurities.OrderByDescending(s => s.UpdatedAt).FirstOrDefaultAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Bảng admin_securities chưa tồn tại hoặc bị lỗi. Đang tự động tạo bảng...");
+            try
+            {
+                await _dbContext.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS admin_securities (
+    ""Id"" UUID PRIMARY KEY,
+    ""Ciphertext"" TEXT NOT NULL,
+    ""Salt"" TEXT NOT NULL,
+    ""Iv"" TEXT NOT NULL,
+    ""Tag"" TEXT NOT NULL,
+    ""Hint"" VARCHAR(500),
+    ""UpdatedAt"" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);", cancellationToken);
+                security = await _dbContext.AdminSecurities.OrderByDescending(s => s.UpdatedAt).FirstOrDefaultAsync(cancellationToken);
+            }
+            catch (Exception createEx)
+            {
+                _logger.LogError(createEx, "Không thể tạo bảng admin_securities.");
+            }
+        }
+
+        string defaultPassphrase = GetMasterPassphrase();
+        string defaultHint = GetMasterHint();
+
         if (security == null)
         {
-            string defaultPassphrase = GetMasterPassphrase();
-            string defaultHint = GetMasterHint();
-
-            // Khởi tạo ciphertext mã hóa ban đầu
             var package = MilitaryWebCrypto.Encrypt("LYRIC_PHONICS_SUPER_ADMIN_VERIFIED", defaultPassphrase, defaultHint);
             security = new AdminSecurityEntity
             {
@@ -112,8 +138,15 @@ public class AdminService : IAdminService
                 Hint = package.Hint,
                 UpdatedAt = DateTime.UtcNow
             };
-            await _dbContext.AdminSecurities.AddAsync(security, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _dbContext.AdminSecurities.AddAsync(security, cancellationToken);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (Exception saveEx)
+            {
+                _logger.LogWarning(saveEx, "Không thể lưu admin_security vào DB. Dùng in-memory fallback.");
+            }
         }
 
         // Tạo Challenge Token tạm thời (có hạn 10 phút) để người dùng nhập Lớp 2
@@ -139,10 +172,29 @@ public class AdminService : IAdminService
             return new AdminLayer2Result(false, null, "Challenge token đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại Lớp 1.");
         }
 
-        var security = await _dbContext.AdminSecurities.FirstOrDefaultAsync(cancellationToken);
+        AdminSecurityEntity? security = null;
+        try
+        {
+            security = await _dbContext.AdminSecurities.OrderByDescending(s => s.UpdatedAt).FirstOrDefaultAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Không thể đọc admin_securities trong Lớp 2. Dùng fallback.");
+        }
+
+        string masterPass = GetMasterPassphrase();
         if (security == null)
         {
-            return new AdminLayer2Result(false, null, "Hệ thống bảo mật Lớp 2 chưa được cấu hình.");
+            var fallbackPkg = MilitaryWebCrypto.Encrypt("LYRIC_PHONICS_SUPER_ADMIN_VERIFIED", masterPass, GetMasterHint());
+            security = new AdminSecurityEntity
+            {
+                Ciphertext = fallbackPkg.Ciphertext,
+                Salt = fallbackPkg.Salt,
+                Iv = fallbackPkg.Iv,
+                Tag = fallbackPkg.Tag,
+                Hint = fallbackPkg.Hint,
+                UpdatedAt = DateTime.UtcNow
+            };
         }
 
         var package = new MilitaryWebCrypto.EncryptedPackage(
@@ -153,7 +205,6 @@ public class AdminService : IAdminService
             Hint: security.Hint
         );
 
-        string masterPass = GetMasterPassphrase();
         string? decrypted = MilitaryWebCrypto.Decrypt(package, request.MasterPassphrase.Trim());
         bool isValid = decrypted == "LYRIC_PHONICS_SUPER_ADMIN_VERIFIED" || request.MasterPassphrase.Trim() == masterPass;
         if (!isValid)
