@@ -20,7 +20,7 @@ Singers and content creators wanting to cover international songs (Chinese, Kore
 ```mermaid
 graph TD
     Client["Client Browser / Mobile"] -->|HTML5 Audio / 60fps rAF| UI["Next.js 14 App Router (Tailwind CSS)"]
-    UI -->|Binary Search O(log N)| Player["Karaoke Sync & Micro-Adjustments"]
+    UI -->|Real-time Binary Search| Player["Karaoke Sync & Micro-Adjustments - O(log N)"]
     UI -->|Multipart Audio Stream| API["LyricPhonics.Api (.NET 8 Minimal API)"]
 
     subgraph "ASP.NET Core .NET 8 LTS (Clean Architecture)"

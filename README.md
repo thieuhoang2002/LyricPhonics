@@ -37,7 +37,7 @@ Singers and TikTok/Reels content creators wanting to cover trending internationa
 graph TD
     User["👤 User / Content Creator"] -->|Web Browser| FE["💻 Frontend (Next.js 14 App Router)"]
     FE -->|Karaoke 60fps| Player["🎵 useAudioPlayer (HTML5 Audio + rAF)"]
-    FE -->|Real-time O(log N) Lookup| Sync["⚡ useLyricSync (Binary Search)"]
+    FE -->|Real-time Binary Search| Sync["⚡ useLyricSync - O(log N)"]
     FE -->|Multipart Audio Stream| API["🚀 LyricPhonics.Api (.NET 8 Minimal API)"]
     
     subgraph "Backend (.NET 8 LTS Clean Architecture)"
