@@ -1,9 +1,9 @@
-namespace LyricPhonics.Infrastructure.Gemini;
+﻿namespace LyricPhonics.Infrastructure.Gemini;
 
 /// <summary>
 /// Chứa các mẫu System Prompt và User Instruction cho Gemini Multimodal Audio Model.
 /// 
-/// 💡 KIẾN THỨC C# / PHỎNG VẤN (Prompt Engineering & Data Integrity):
+/// 💡 Thiết kế kỹ thuật (Prompt Engineering & Data Integrity):
 /// - Prompt được thiết kế chuyên biệt để yêu cầu Gemini nghe kỹ nhịp phách của ca sĩ
 ///   và chuyển tự sang phiên âm tiếng Việt bồi có thanh điệu chuẩn khẩu hình hát cover.
 /// - Ép kiểu JSON nghiêm ngặt để đảm bảo máy chủ .NET deserialization luôn thành công 100%.

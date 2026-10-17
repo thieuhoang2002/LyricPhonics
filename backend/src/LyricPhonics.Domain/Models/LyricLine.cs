@@ -1,4 +1,4 @@
-namespace LyricPhonics.Domain.Models;
+﻿namespace LyricPhonics.Domain.Models;
 
 /// <summary>
 /// Đại diện cho một câu hát trong bài hát với cấu trúc 3 tầng:
@@ -6,7 +6,7 @@ namespace LyricPhonics.Domain.Models;
 /// 2. Phiên âm bồi tiếng Việt (PhoneticText): Chuẩn khẩu hình và thanh điệu để người Việt hát cover ngay.
 /// 3. Dịch nghĩa tiếng Việt (TranslationText): Bản dịch ngắn gọn giúp người hát hiểu cảm xúc.
 /// 
-/// 💡 KIẾN THỨC C# / PHỎNG VẤN:
+/// 💡 Thiết kế kỹ thuật:
 /// - Sử dụng C# 'record' thay vì 'class' thông thường.
 /// - 'record' mang tính bất biến (Immutability), tự động sinh hàm so sánh theo giá trị (Value-based equality),
 ///   hỗ trợ biểu thức 'with' để clone dữ liệu an toàn trong môi trường đa luồng (Thread-safe).

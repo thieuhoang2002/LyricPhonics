@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -10,7 +10,7 @@ namespace LyricPhonics.Infrastructure.Gemini;
 /// <summary>
 /// Triển khai dịch vụ bóc tách lời bài hát bằng Google Gemini Multimodal Audio API.
 /// 
-/// 💡 KIẾN THỨC C# / PHỎNG VẤN:
+/// 💡 Thiết kế kỹ thuật:
 /// 1. IHttpClientFactory & Resilience (Polly):
 ///    - Không tự 'new HttpClient()' vì gây kiệt quệ Socket (Socket Exhaustion).
 ///    - HttpClient được quản lý qua DI Container, tích hợp sẵn Polly để tự động Retry

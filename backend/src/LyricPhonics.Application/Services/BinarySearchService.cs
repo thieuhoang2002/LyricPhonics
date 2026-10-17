@@ -1,4 +1,4 @@
-using LyricPhonics.Application.Interfaces;
+﻿using LyricPhonics.Application.Interfaces;
 using LyricPhonics.Domain.Models;
 
 namespace LyricPhonics.Application.Services;
@@ -6,7 +6,7 @@ namespace LyricPhonics.Application.Services;
 /// <summary>
 /// Triển khai thuật toán tìm kiếm nhị phân (Binary Search) O(log N) cho việc định vị câu hát.
 /// 
-/// 💡 KIẾN THỨC C# / PHỎNG VẤN (Big-O & Data Structures):
+/// 💡 Thiết kế kỹ thuật (Big-O & Data Structures):
 /// - Khi bài hát phát liên tục (60 lần/giây), nếu dùng Array.Find() hoặc FirstOrDefault()
 ///   độ phức tạp sẽ là O(N). Với 100 câu hát và 60fps, ta tốn 6,000 phép so sánh mỗi giây!
 /// - Với Binary Search O(log N), 100 câu hát chỉ cần tối đa ~7 phép so sánh (log2(100) ≈ 6.64).

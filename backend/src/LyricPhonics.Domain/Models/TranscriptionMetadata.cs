@@ -1,9 +1,9 @@
-namespace LyricPhonics.Domain.Models;
+﻿namespace LyricPhonics.Domain.Models;
 
 /// <summary>
 /// Chứa thông tin siêu dữ liệu (Metadata) của bài hát được phân tích.
 /// 
-/// 💡 KIẾN THỨC C# / PHỎNG VẤN:
+/// 💡 Thiết kế kỹ thuật:
 /// - Khai báo record với các tham số mặc định (default parameters).
 /// - Dùng string? (Nullable Reference Types) để chỉ định rõ thuộc tính có thể null,
 ///   kết hợp tính năng 'strict nullable' trong C# 8+ để ngăn ngừa ngoại lệ NullReferenceException kinh điển.

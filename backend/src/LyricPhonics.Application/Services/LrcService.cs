@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using LyricPhonics.Application.Interfaces;
@@ -9,7 +9,7 @@ namespace LyricPhonics.Application.Services;
 /// <summary>
 /// Dịch vụ xử lý định dạng file Karaoke LRC (.lrc).
 /// 
-/// 💡 KIẾN THỨC C# / PHỎNG VẤN (Performance & String Optimization):
+/// 💡 Thiết kế kỹ thuật (Performance & String Optimization):
 /// - Sử dụng 'StringBuilder' khi ghép chuỗi file lớn thay vì cộng chuỗi '+' để tránh sinh ra
 ///   hàng nghìn chuỗi rác trên Heap (tránh Garbage Collection pressure).
 /// - Định dạng thời gian theo chuẩn bất biến (CultureInfo.InvariantCulture) để đảm bảo dấu thập

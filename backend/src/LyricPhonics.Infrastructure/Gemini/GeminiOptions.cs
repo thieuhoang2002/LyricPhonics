@@ -1,9 +1,9 @@
-namespace LyricPhonics.Infrastructure.Gemini;
+﻿namespace LyricPhonics.Infrastructure.Gemini;
 
 /// <summary>
 /// Lớp cấu hình tùy chọn cho dịch vụ Google Gemini API.
 /// 
-/// 💡 KIẾN THỨC C# / PHỎNG VẤN (Options Pattern):
+/// 💡 Thiết kế kỹ thuật (Options Pattern):
 /// - Sử dụng Options Pattern (IOptions<GeminiOptions>) là quy chuẩn vàng trong .NET để
 ///   ánh xạ trực tiếp từ file cấu hình (appsettings.json hoặc Environment Variables)
 ///   vào một đối tượng C# định kiểu mạnh.

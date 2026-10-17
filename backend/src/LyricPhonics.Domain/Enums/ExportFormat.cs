@@ -1,9 +1,9 @@
-namespace LyricPhonics.Domain.Enums;
+﻿namespace LyricPhonics.Domain.Enums;
 
 /// <summary>
 /// Các định dạng xuất tệp được hỗ trợ bởi hệ thống LyricPhonics.
 /// 
-/// 💡 KIẾN THỨC C# / PHỎNG VẤN:
+/// 💡 Thiết kế kỹ thuật:
 /// - Enum định kiểu mạnh (Strongly-typed), giúp loại bỏ hoàn toàn các chuỗi 'magic strings' ("txt", "lrc").
 /// - Hạn chế lỗi typo khi truyền tham số giữa các tầng kiến trúc.
 /// </summary>

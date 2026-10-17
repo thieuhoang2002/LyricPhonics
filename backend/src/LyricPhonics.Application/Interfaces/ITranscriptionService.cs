@@ -1,11 +1,11 @@
-using LyricPhonics.Domain.Models;
+﻿using LyricPhonics.Domain.Models;
 
 namespace LyricPhonics.Application.Interfaces;
 
 /// <summary>
 /// Hợp đồng (Interface) cho dịch vụ bóc tách lời bài hát bằng AI.
 /// 
-/// 💡 KIẾN THỨC C# / PHỎNG VẤN (SOLID - Dependency Inversion Principle):
+/// 💡 Thiết kế kỹ thuật (SOLID - Dependency Inversion Principle):
 /// - Tầng Application định nghĩa Interface này nhưng KHÔNG quan tâm bên dưới dùng Gemini, OpenAI hay Whisper.
 /// - Tầng Infrastructure sẽ chịu trách nhiệm triển khai cụ thể (Implementation).
 /// - Giúp dễ dàng viết Unit Test (bằng Moq) mà không phải gọi API AI thật tốn tiền/quota.

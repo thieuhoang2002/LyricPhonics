@@ -1,11 +1,11 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace LyricPhonics.Infrastructure.Gemini;
 
 /// <summary>
 /// Các đối tượng DTO định dạng JSON gửi đi và nhận về từ Google Gemini REST API.
 /// 
-/// 💡 KIẾN THỨC C# / PHỎNG VẤN (System.Text.Json & Source Generation Ready):
+/// 💡 Thiết kế kỹ thuật (System.Text.Json & Source Generation Ready):
 /// - Dùng C# 12 'record' kết hợp thuộc tính '[JsonPropertyName]' để ánh xạ chính xác
 ///   cú pháp camelCase của Google API sang PascalCase chuẩn của C#.
 /// - Không tốn chi phí cấp phát bộ nhớ thừa.

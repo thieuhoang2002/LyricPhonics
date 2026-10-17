@@ -1,7 +1,7 @@
 <div align="center">
 
 # 🎵 LyricPhonics
-### AI Multimodal Audio Phonics Cover Engine & Synchronized Lyric Workspace
+### Full-Stack AI Multimodal Audio Phonics Cover Engine & Synchronized Lyric Workspace
 
 [![.NET 8 LTS](https://img.shields.io/badge/.NET-8.0_LTS-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![Next.js 14](https://img.shields.io/badge/Next.js-14_App_Router-black?logo=next.js&logoColor=white)](https://nextjs.org/)
@@ -9,33 +9,36 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict_Mode-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Polly v8](https://img.shields.io/badge/Resilience-Polly_v8-blue)](https://github.com/App-vNext/Polly)
 [![Clean Architecture](https://img.shields.io/badge/Architecture-Clean_Architecture-orange)](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Contributing](https://img.shields.io/badge/Contributing-Welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-*Bóc tách lời bài hát quốc tế (Trung, Hàn, Nhật, Anh, Thái...) sang phiên âm tiếng Việt bồi chuẩn khẩu hình và thanh điệu để người dùng tự tin hát cover ngay lần đầu tiên.*
+*Transcribe, phoneticize, and synchronize international songs (Chinese, Korean, Japanese, English, Thai) into natural phonetic lyrics with millisecond timestamps for instant cover singing and video editing.*
+
+[Technical Overview](docs/OVERVIEW.md) • [Contributing Guide](CONTRIBUTING.md) • [Report Bug](https://github.com/thieuhoang2002/LyricPhonics/issues)
 
 </div>
 
 ---
 
-## 🌟 GIỚI THIỆU BÀI TOÁN & GIẢI PHÁP
+## 🌟 The Problem & The Solution
 
-Nhiều người yêu âm nhạc rất muốn cover các ca khúc quốc tế thịnh hành trên TikTok/YouTube nhưng gặp rào cản:
-1. **Không biết đọc chữ tượng hình** (chữ Hán, Hanja, Kana...).
-2. **Pinyin / Romaja truyền thống** không có thanh điệu tự nhiên của tiếng Việt, dẫn đến hát gượng gạo, lệch phách.
-3. **Các bản dịch trên mạng không có mốc thời gian (timestamp)**, không biết điểm vào nhạc và ngắt nghỉ hơi.
+Singers and TikTok/Reels content creators wanting to cover trending international songs face three major obstacles:
+1. **Unreadable Source Scripts:** Inability to read original logographic alphabets (Hanzi, Hanja, Kana...).
+2. **Unsingable Standard Romanization:** Standard Pinyin or Romaja lacks tonal cadence and Vietnamese natural articulation, making covers sound rigid and off-tempo.
+3. **Missing Timing:** General lyrics on the web lack timestamps, leaving singers uncertain about entry cues and rhythmic rests.
 
-**LyricPhonics** giải quyết trọn vẹn bài toán này bằng công nghệ **AI Multimodal Audio** kết hợp hệ thống **Backend ASP.NET Core .NET 8 LTS** chuẩn **Clean Architecture** và **Frontend Next.js** đồng bộ 60fps.
+**LyricPhonics** solves this by pairing **Google Gemini Multimodal Audio AI** with an enterprise-grade **ASP.NET Core .NET 8 LTS Backend** (Clean Architecture) and an interactive **Next.js 14 Frontend** featuring a 60fps real-time synchronized karaoke engine.
 
 ---
 
-## 🏛️ KIẾN TRÚC HỆ THỐNG (CLEAN ARCHITECTURE MONOREPO)
+## 🏛️ System Architecture
 
 ```mermaid
 graph TD
-    User["👤 Người dùng / TikTok Creator"] -->|Trình duyệt| FE["💻 Frontend (Next.js 14 App Router)"]
+    User["👤 User / Content Creator"] -->|Web Browser| FE["💻 Frontend (Next.js 14 App Router)"]
     FE -->|Karaoke 60fps| Player["🎵 useAudioPlayer (HTML5 Audio + rAF)"]
-    FE -->|Tìm kiếm O(log N)| Sync["⚡ useLyricSync (Binary Search)"]
-    FE -->|Multipart Stream| API["🚀 LyricPhonics.Api (.NET 8 Minimal API)"]
+    FE -->|Real-time O(log N) Lookup| Sync["⚡ useLyricSync (Binary Search)"]
+    FE -->|Multipart Audio Stream| API["🚀 LyricPhonics.Api (.NET 8 Minimal API)"]
     
     subgraph "Backend (.NET 8 LTS Clean Architecture)"
         API -->|Dependency Injection| App["📦 LyricPhonics.Application"]
@@ -50,78 +53,79 @@ graph TD
 
 ---
 
-## ⚡ CÁC TÍNH NĂNG NỔI BẬT
+## ✨ Key Features
 
-### 1. Bóc Tách 3 Tầng Chuẩn Xác (3-Tier Output)
-- **Tầng 1 (Original Text):** Lời bài hát bằng chữ viết gốc.
-- **Tầng 2 (Phonetic Cover Text):** Phiên âm tiếng Việt bồi **chuẩn khẩu hình và dấu thanh** theo từng phách ngắt nghỉ của ca sĩ (Ví dụ: `徒余明月忆往昔` $\to$ `Thú xuy mính uế i oảng xí`).
-- **Tầng 3 (Translation Text):** Nghĩa tiếng Việt vắn tắt, giàu chất thơ.
+### 1. 3-Tier Layered Lyric Output
+Every recognized line is partitioned into three synchronized layers:
+- **Layer 1 (Original Text):** Original logographic or native script (e.g. `徒余明月忆往昔`).
+- **Layer 2 (Phonetic Cover Text):** Tone-accurate phonetic lyrics matching the singer's musical cadence (e.g. `Thú xuy mính uế i oảng xí`).
+- **Layer 3 (Translation Text):** Poetic Vietnamese translation conveying song emotion.
 
-### 2. Trình Phát Karaoke Đồng Bộ 60fps & Micro-Adjustment
-- Đồng bộ câu hát với nhạc qua vòng lặp `requestAnimationFrame` 60fps mượt mà, không giật lag.
-- **Thuật toán Binary Search $O(\log N)$:** Định vị câu hát theo mili-giây, xử lý danh sách $10.000$ câu trong chưa đầy $1\text{ms}$.
-- Công cụ **tinh chỉnh timeline $\pm 0.5s$** và sửa chữ trực tiếp trên giao diện.
+### 2. 60fps Synchronized Karaoke Player & Fine-Tuning
+- High-precision playback tracking via `requestAnimationFrame` at 60fps without UI stutter.
+- **$O(\log N)$ Binary Search Engine:** Instantaneous line lookup across 10,000 lines in $<1\text{ms}$.
+- Micro-adjustment toolbar: nudge timing by $\pm 0.5s$ or bind current playback timestamp.
 
-### 3. Phát Âm Bản Xứ Chuẩn (Native Speech Synthesis)
-- Tích hợp Web Speech API giúp người dùng bấm nút **[🔊 Phát âm]** để nghe giọng đọc bản xứ chuẩn (Bắc Kinh, Tokyo, Seoul...) phục vụ luyện phát âm từng từ.
+### 3. Native Speech Pronunciation
+- Integrated browser-native Web Speech Synthesis API allows users to click **`[🔊 Pronounce]`** to hear standard native pronunciation (Mandarin, Japanese, Korean, English) at 0.85x speed for practice.
 
-### 4. Xuất Tệp 1-Click Đa Định Dạng
-- **`.LRC`:** File Karaoke tiêu chuẩn nạp vào các app nghe nhạc.
-- **`.SRT`:** File phụ đề video khớp mốc thời gian import thẳng vào **CapCut** hoặc **Adobe Premiere** để dựng video cover.
-- **`.TXT`:** File lời song ngữ in ra hoặc đọc trên điện thoại.
-- **`Clipboard`:** Sao chép nhanh kèm emoji trực quan.
+### 4. 1-Click Multi-Format Export
+- **`.LRC`:** Standard karaoke file with `[mm:ss.xx]` tags for media players.
+- **`.SRT`:** Synchronized subtitle track ready to import into **CapCut** or **Adobe Premiere**.
+- **`.TXT`:** Clean lyric sheet for reading or printing.
+- **`Clipboard`:** Instant formatted copy with emojis.
 
 ---
 
-## 🛠️ CẤU TRÚC MÃ NGUỒN (DIRECTORY MAP)
+## 📁 Repository Structure
 
 ```text
 LyricPhonics/
-├── AGENTS.md                  # Quy tắc bắt buộc về Big-O, Memory, Clean Architecture
-├── PROJECT_SPEC.md            # Đặc tả bài toán & Yêu cầu phi chức năng
-├── TECHSTACK.md               # Danh mục công nghệ chuẩn
-├── TODO.md                    # Roadmap & Tiến độ các Sprint
-├── CHANGELOG.md               # Nhật ký phiên bản chuẩn Keep a Changelog
-├── TESTING_PLAN.md            # Ma trận kiểm thử tự động
+├── CONTRIBUTING.md            # Guidelines for open-source contributors
+├── LICENSE                    # MIT License
+├── README.md                  # Main documentation
+├── PROJECT_SPEC.md            # System requirements & user flows
+├── TECHSTACK.md               # Technology choices & architectural boundaries
+├── TODO.md                    # Roadmap & Sprint tracker
+├── CHANGELOG.md               # Keep a Changelog releases
+├── TESTING_PLAN.md            # Automated testing strategy
 │
-├── frontend/                  # GIAO DIỆN CLIENT (NEXT.JS 14)
-│   ├── src/
-│   │   ├── app/               # App Router (page.tsx, layout.tsx, globals.css)
-│   │   ├── components/        # AudioDropzone, LyricView, AudioPlayerBar, ExportToolbar
-│   │   ├── hooks/             # useAudioPlayer (60fps rAF), useLyricSync (O(log N))
-│   │   ├── lib/               # Export utilities, Security (XSS sanitize), Speech
-│   │   └── types/             # TypeScript interfaces
+├── frontend/                  # CLIENT INTERFACE (NEXT.JS 14 APP ROUTER)
+│   ├── src/app/               # Main application pages & layout
+│   ├── src/components/        # AudioDropzone, LyricView, AudioPlayerBar, ExportToolbar
+│   ├── src/hooks/             # useAudioPlayer (60fps), useLyricSync (O(log N))
+│   ├── src/lib/               # Export utilities (TXT, LRC, SRT), Security, Speech
 │   └── package.json
 │
-└── backend/                   # MÁY CHỦ XỬ LÝ (.NET 8 LTS)
+└── backend/                   # SERVER ENGINE (ASP.NET CORE .NET 8 LTS)
     ├── LyricPhonics.sln       # Visual Studio Solution
     ├── src/
-    │   ├── LyricPhonics.Domain/          # Models (LyricLine, TranscriptionResult)
+    │   ├── LyricPhonics.Domain/          # Models (LyricLine, TranscriptionResult), Enums
     │   ├── LyricPhonics.Application/     # ITranscriptionService, LrcService, BinarySearchService
-    │   ├── LyricPhonics.Infrastructure/  # GeminiTranscriptionService (Polly Resilience v8)
+    │   ├── LyricPhonics.Infrastructure/  # GeminiTranscriptionService (Polly v8 Resilience)
     │   └── LyricPhonics.Api/             # Minimal API Endpoints, Middleware, Swagger UI
     └── tests/
-        └── LyricPhonics.Tests/           # xUnit Unit Tests (100% Pass)
+        └── LyricPhonics.Tests/           # xUnit Unit & Integration Tests (100% Pass)
 ```
 
 ---
 
-## 🚀 HƯỚNG DẪN KHỞI CHẠY (QUICKSTART)
+## 🚀 Quickstart Guide
 
-### Yêu Cầu Môi Trường
-- **.NET 8 SDK** (hoặc .NET 10 SDK có bật RollForward)
+### Prerequisites
+- **.NET 8 SDK** (or .NET 10 SDK with RollForward enabled)
 - **Node.js 18+** & **npm**
-- **Google Gemini API Key** (Lấy miễn phí tại [Google AI Studio](https://aistudio.google.com/app/apikey))
+- Free **Google Gemini API Key** from [Google AI Studio](https://aistudio.google.com/app/apikey)
 
 ---
 
-### Bước 1: Khởi Chạy Backend (.NET 8 Web API)
+### Step 1: Start Backend (.NET 8 Web API)
 
-1. Di chuyển vào thư mục backend:
+1. Navigate to the API directory:
    ```bash
    cd backend/src/LyricPhonics.Api
    ```
-2. Cấu hình API Key trong file `appsettings.Development.json` (hoặc set biến môi trường):
+2. Configure your Gemini API Key in `appsettings.Development.json` (or set environment variable `GEMINI_API_KEY`):
    ```json
    {
      "Gemini": {
@@ -129,53 +133,70 @@ LyricPhonics/
      }
    }
    ```
-3. Khởi chạy máy chủ:
+3. Run the API:
    ```bash
    dotnet run
    ```
-   👉 Máy chủ Backend sẽ lắng nghe tại: **`http://localhost:5000`**  
-   👉 Tài liệu Swagger UI: **`http://localhost:5000/swagger`**
+   - API runs at: **`http://localhost:5000`**
+   - Interactive Swagger UI: **`http://localhost:5000/swagger`**
 
 ---
 
-### Bước 2: Khởi Chạy Frontend (Next.js)
+### Step 2: Start Frontend (Next.js)
 
-1. Mở một terminal mới và di chuyển vào thư mục frontend:
+1. Open a new terminal and navigate to the frontend directory:
    ```bash
    cd frontend
    ```
-2. Cài đặt dependencies (nếu chưa có):
+2. Install dependencies:
    ```bash
    npm install
    ```
-3. Khởi chạy ứng dụng Next.js:
+3. Launch development server:
    ```bash
    npm run dev
    ```
-   👉 Mở trình duyệt tại: **`http://localhost:3000`**
+   - Frontend runs at: **`http://localhost:3000`**
 
 ---
 
-## 🧪 CHẠY KIỂM THỬ TỰ ĐỘNG (AUTOMATED TESTS)
+## 🧪 Automated Testing
 
-Hệ thống sở hữu ma trận kiểm thử tự động toàn diện:
+Both Backend and Frontend maintain comprehensive test suites:
 
-1. **Kiểm thử Backend (xUnit + FluentAssertions + Moq):**
+1. **Backend Tests (xUnit + FluentAssertions + Moq):**
    ```bash
    dotnet test backend/LyricPhonics.sln
    ```
-   *Kết quả: 19/19 tests passed (Binary Search $O(\log N)$, LRC parsing, Mock HttpClient Polly).*
+   *Result: 19/19 tests passed (Binary Search $O(\log N)$, LRC parsing, Mock HttpClient Polly).*
 
-2. **Kiểm thử Frontend (Vitest):**
+2. **Frontend Tests (Vitest):**
    ```bash
    cd frontend && npm run test
    ```
-   *Kết quả: 43/43 tests passed (Time utils, Client Binary Search, Content Security, Export).*
+   *Result: 43/43 tests passed (Time utilities, Client Binary Search, Content Security, Export).*
 
 ---
 
-## 👤 TÁC GIẢ & BẢN QUYỀN
+## 💖 Support & Sponsor
 
-- **Tác giả:** [Thiều Việt Hoàng](https://github.com/thieuhoang2002)
-- **Repository:** [https://github.com/thieuhoang2002/LyricPhonics](https://github.com/thieuhoang2002/LyricPhonics)
-- **Giấy phép:** [MIT License](LICENSE)
+If you find this project helpful or inspiring, consider supporting its development:
+
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/thhoang0903)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/thhoang0903)
+[![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/thieuhoang2209)
+
+---
+
+## 👤 Author & Connect
+
+- **Author:** **Thieu Viet Hoang**
+- **Portfolio:** [https://thhoang.io.vn](https://thhoang.io.vn)
+- **LinkedIn:** [https://www.linkedin.com/in/thhoang0903](https://www.linkedin.com/in/thhoang0903)
+- **GitHub:** [@thieuhoang2002](https://github.com/thieuhoang2002)
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).

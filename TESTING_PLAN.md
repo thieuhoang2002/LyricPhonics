@@ -1,43 +1,43 @@
-# TESTING PLAN — CHIẾN LƯỢC KIỂM THỬ TOÀN DIỆN (MONOREPO)
+# Testing Strategy & Automated Verification Plan
 
-> **Dự án:** LyricPhonics (C# .NET 8 LTS Backend & Next.js Frontend)  
-> **Cập nhật:** 2026-10-17  
+> **Project:** LyricPhonics (C# .NET 8 LTS Backend & Next.js Frontend)  
+> **Updated:** 2026-10-17  
 
 ---
 
-## 🧪 1. MA TRẬN KIỂM THỬ BACKEND (.NET 8 LTS - XUNIT)
+## 🧪 1. Backend Automated Testing Matrix (.NET 8 LTS — xUnit)
 
-Kiểm thử tự động trên Backend được xây dựng bằng bộ 3: **xUnit + FluentAssertions + Moq**.
+Backend testing is powered by the enterprise-grade triad: **xUnit + FluentAssertions + Moq**.
 
-| Phạm vi kiểm thử | File Test | Kỹ thuật / Mục tiêu kiểm thử |
+| Test Scope | Test File | Testing Methodology & Objectives |
 | :--- | :--- | :--- |
-| **Thuật toán Binary Search** | `BinarySearchTests.cs` | • Kiểm thử tra cứu $O(\log N)$ tại các mốc thời gian biên (`0.0s`, giữa câu, sau câu cuối).<br>• Đo đạc thời gian thực thi với danh sách $10.000$ câu hát. |
-| **Xử lý File Karaoke LRC** | `LrcServiceTests.cs` | • Format từ `LyricLine` sang chuỗi chuẩn `[mm:ss.xx]`.<br>• Parse ngược từ file LRC về danh sách đối tượng, kiểm tra sai số làm tròn mili-giây. |
-| **Validation & Bảo mật File** | `AudioValidationTests.cs` | • Kiểm tra định dạng MIME hợp lệ (audio/mpeg, audio/wav, video/mp4).<br>• Kiểm tra từ chối các file vượt quá 25MB hoặc file giả mạo extension. |
-| **Gemini Client & Polly Resilience** | `GeminiClientTests.cs` | • Mock `HttpMessageHandler` mô phỏng lỗi HTTP 503 và 429.<br>• Xác minh Polly kích hoạt cơ chế retry thành công và không gây crash ứng dụng. |
+| **Binary Search Algorithm** | `BinarySearchTests.cs` | • Verify $O(\log N)$ lookups at boundary timestamps (`0.0s`, midway, after song end).<br>• Benchmark throughput across 10,000 lyric lines in $<50\text{ms}$. |
+| **Karaoke LRC Parsing & Generation** | `LrcServiceTests.cs` | • Verify format conversion from `LyricLine` to standard `[mm:ss.xx]` tags.<br>• Perform roundtrip verification: parse generated LRC back into strongly typed domain objects. |
+| **File Validation & Input Security** | `AudioValidationTests.cs` | • Verify allowed MIME types (audio/mpeg, audio/wav, video/mp4).<br>• Enforce rejection of files exceeding the 25MB threshold or spoofed extensions. |
+| **Gemini Client & Polly Resilience** | `GeminiTranscriptionServiceTests.cs` | • Mock `HttpMessageHandler` simulating HTTP 503 and 429 status codes.<br>• Assert that Polly resilience policies activate retries and fallback models without crashing. |
 
 ---
 
-## 🧪 2. MA TRẬN KIỂM THỬ FRONTEND (NEXT.JS - VITEST)
+## 🧪 2. Frontend Automated Testing Matrix (Next.js — Vitest)
 
-| Phạm vi kiểm thử | File Test | Mục tiêu kiểm thử |
+| Test Scope | Test File | Objectives |
 | :--- | :--- | :--- |
-| **Tiện ích Thời Gian** | `time.test.ts` | Chuyển đổi giây $\leftrightarrow$ mm:ss và định dạng hiển thị. |
-| **Binary Search Client** | `binary-search.test.ts` | Tra cứu $O(\log N)$ câu hát đang phát trên trình duyệt. |
-| **Bảo mật Content Security** | `security.test.ts` | Sanitize XSS, kiểm tra an toàn localStorage quota (<2MB). |
-| **Bộ Xuất File** | `export.test.ts`, `lrc.test.ts` | Xuất TXT, LRC, SRT, Clipboard sạch sẽ không lỗi font. |
-| **Phát Âm Ngôn Ngữ Gốc** | `speech.test.ts` | Ánh xạ chính xác locale (`zh-CN`, `ja-JP`, `ko-KR`, `en-US`). |
+| **Time Conversion Utilities** | `time.test.ts` | Seconds $\leftrightarrow$ mm:ss format conversions and display formatting. |
+| **Client-side Binary Search** | `binary-search.test.ts` | $O(\log N)$ real-time active line index lookup during 60fps playback. |
+| **Content Security** | `security.test.ts` | XSS sanitization, safe localStorage quota verification (<2MB). |
+| **Export Engines** | `export.test.ts`, `lrc.test.ts` | Multi-format generation for TXT, LRC, SRT, and Clipboard formats. |
+| **Native Pronunciation Mapping** | `speech.test.ts` | Accurate locale mapping (`zh-CN`, `ja-JP`, `ko-KR`, `en-US`). |
 
 ---
 
-## 🚀 3. LỆNH CHẠY KIỂM THỬ TOÀN BỘ HỆ THỐNG
+## 🚀 3. Running All Tests
 
-1. **Kiểm thử Backend .NET 8:**
-   ```powershell
+1. **Run Backend Test Suite (.NET 8):**
+   ```bash
    dotnet test backend/LyricPhonics.sln
    ```
-2. **Kiểm thử Frontend Next.js:**
-   ```powershell
+2. **Run Frontend Test Suite (Next.js):**
+   ```bash
    cd frontend
    npm run test
    ```

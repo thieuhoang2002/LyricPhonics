@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
 using LyricPhonics.Application.Interfaces;
@@ -9,7 +9,7 @@ namespace LyricPhonics.Infrastructure;
 /// <summary>
 /// Phương thức mở rộng cấu hình Dependency Injection cho tầng Infrastructure.
 /// 
-/// 💡 KIẾN THỨC C# / PHỎNG VẤN (Enterprise Resilience with Polly v8):
+/// 💡 Thiết kế kỹ thuật (Enterprise Resilience with Polly v8):
 /// - 'AddStandardResilienceHandler': Tính năng mới cực mạnh trong .NET 8.
 /// - Tự động thiết lập:
 ///   1. Rate Limiting (giới hạn tần suất gọi).

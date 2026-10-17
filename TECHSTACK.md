@@ -1,76 +1,78 @@
-# TECHSTACK.MD — DANH MỤC CÔNG NGHỆ VÀ KIẾN TRÚC MONOREPO
+# Technology Stack & Architecture Specification
 
-> **Dự án:** LyricPhonics (Full-Stack Monorepo: C# .NET 8 LTS + Next.js App Router)  
-> **Cập nhật:** 2026-10-17  
-> **Phiên bản:** v0.3.0  
+> **Project:** LyricPhonics (Full-Stack Clean Architecture Monorepo)  
+> **Version:** v0.3.0  
+> **Backend:** ASP.NET Core .NET 8 LTS (C# 12)  
+> **Frontend:** Next.js 14 App Router (TypeScript Strict)  
 
 ---
 
-## 🏛️ KIẾN TRÚC TỔNG THỂ (CLEAN ARCHITECTURE MONOREPO)
+## 🏛️ Monorepo Clean Architecture Overview
 
 ```mermaid
 graph TD
     Client["Browser / Mobile Client"] -->|HTTP / JSON| API["LyricPhonics.Api (.NET 8 Minimal API)"]
-    API -->|DI| App["LyricPhonics.Application (Use Cases & Interfaces)"]
+    API -->|Dependency Injection| App["LyricPhonics.Application (Use Cases & Interfaces)"]
     App -->|Implements| Infra["LyricPhonics.Infrastructure (Gemini API & Polly)"]
     App -->|Uses| Domain["LyricPhonics.Domain (Records, Models, Enums)"]
     Infra -->|Uses| Domain
     API -->|Uses| Domain
-    Infra -->|HTTP + Stream| Gemini["Google Gemini 3.5 Flash Audio API"]
+    Infra -->|HTTP Stream| Gemini["Google Gemini 3.5 Flash Audio API"]
 ```
 
 ---
 
-## ⚙️ BACKEND TECH STACK (.NET 8 LTS)
+## ⚙️ Backend Technology Stack (.NET 8 LTS)
 
-| Thành phần | Công nghệ / Thư viện | Phiên bản | Mục đích & Điểm nhấn phỏng vấn |
+| Component | Technology / Library | Version | Role & Architectural Purpose |
 | :--- | :--- | :--- | :--- |
-| **Runtime & SDK** | **.NET 8 LTS (C# 12)** | `net8.0` | Bản hỗ trợ dài hạn (Long Term Support), hiệu năng đỉnh cao, AOT-ready. |
-| **API Framework** | **ASP.NET Core Minimal APIs** | 8.0 | Khởi động siêu nhanh, cú pháp tinh gọn, benchmark hiệu năng vượt xa Controller truyền thống. |
-| **Kiến trúc** | **Clean Architecture** | 4 Tầng | Phân tách trách nhiệm (SoC): Domain $\to$ Application $\to$ Infrastructure $\to$ Api. |
-| **Fault Tolerance** | `Microsoft.Extensions.Http.Resilience` | 8.x | Polly v8 tích hợp sẵn: Exponential Backoff, Retry mã 503/429, Timeout, Circuit Breaker. |
-| **Tài liệu API** | **Swashbuckle.AspNetCore (Swagger)** | 6.x | Tự động sinh giao diện OpenAPI/Swagger UI kiểm thử trực tiếp trên trình duyệt. |
-| **Serialization** | `System.Text.Json` | Native 8.0 | Strong typing, zero-allocation serialization, loại bỏ hoàn toàn `Newtonsoft.Json`. |
-| **Testing** | **xUnit + FluentAssertions + Moq** | Latest | Bộ 3 tiêu chuẩn vàng của kiểm thử tự động trong các dự án .NET doanh nghiệp. |
+| **Runtime & SDK** | **.NET 8 LTS (C# 12)** | `net8.0` | Long-Term Support release with high-throughput runtime and AOT-readiness. |
+| **API Framework** | **ASP.NET Core Minimal APIs** | 8.0 | Lightweight, low-overhead HTTP pipeline with superior RPS compared to traditional controllers. |
+| **Architecture** | **Clean Architecture** | 4 Layers | Separation of Concerns (Domain $\to$ Application $\to$ Infrastructure $\to$ Api). |
+| **Resilience & Fault Tolerance** | `Microsoft.Extensions.Http.Resilience` | 8.x | Built-in Polly v8 policies: Exponential Backoff, Retry on 503/429, Circuit Breaker, Timeout. |
+| **API Documentation** | **Swashbuckle.AspNetCore (Swagger)** | 6.x | Interactive OpenAPI testing UI available at `/swagger`. |
+| **Serialization** | `System.Text.Json` | Native 8.0 | High-performance, zero-allocation serialization with strongly typed records. |
+| **Testing** | **xUnit + FluentAssertions + Moq** | Latest | Industry-standard triad for automated unit testing in enterprise .NET applications. |
 
 ---
 
-## 💻 FRONTEND TECH STACK (NEXT.JS)
+## 💻 Frontend Technology Stack (Next.js)
 
-| Thành phần | Công nghệ / Thư viện | Phiên bản | Mục đích |
+| Component | Technology / Library | Version | Role |
 | :--- | :--- | :--- | :--- |
-| **Framework** | **Next.js (App Router)** | ^14.2 | Server & Client Components, routing linh hoạt. |
-| **Ngôn ngữ** | **TypeScript Strict** | ^5.x | Strict mode, zero `any`, đảm bảo type-safety hoàn hảo. |
-| **Giao diện** | **Tailwind CSS + Lucide Icons** | ^3.4 / ^0.450 | UI Cyberpunk hiện đại, responsive, icon âm nhạc trực quan. |
-| **Audio Sync** | **HTML5 Audio + rAF** | Native | Vòng lặp `requestAnimationFrame` 60fps đồng bộ highlight câu hát mượt mà. |
-| **Speech** | **Web Speech Synthesis API** | Native | Phát âm chuẩn giọng bản xứ (Bắc Kinh, Tokyo, Seoul...) không tốn phí API. |
+| **Framework** | **Next.js (App Router)** | ^14.2 | Server & Client Components with modern React hooks. |
+| **Language** | **TypeScript Strict** | ^5.x | Strict mode (`strict: true`, zero `any`) for end-to-end type safety. |
+| **UI & Styling** | **Tailwind CSS + Lucide Icons** | ^3.4 / ^0.450 | Modern responsive dark-mode styling with intuitive musical controls. |
+| **Audio Sync** | **HTML5 Audio + rAF** | Native | 60fps `requestAnimationFrame` loop providing jitter-free karaoke highlighting. |
+| **Speech** | **Web Speech Synthesis API** | Native | Zero-latency browser-native speech synthesis for standard pronunciation practice. |
 
 ---
 
-## 📁 CẤU TRÚC THƯ MỤC CHUẨN (MONOREPO DIRECTORY MAP)
+## 📁 Monorepo Directory Map
 
 ```text
 LyricPhonics/
-├── AGENTS.md                  # Quy tắc bắt buộc cho AI IDE & Lập trình viên
-├── PROJECT_SPEC.md            # Đặc tả yêu cầu bài toán & User flow
-├── TECHSTACK.md               # Bản đặc tả kỹ thuật này
-├── TODO.md                    # Lộ trình Sprint & Công việc
-├── CHANGELOG.md               # Nhật ký thay đổi chuẩn Keep a Changelog
-├── TESTING_PLAN.md            # Chiến lược kiểm thử Backend & Frontend
-├── .gitignore                 # Loại trừ bin/, obj/, node_modules, .env*, secrets
+├── AGENTS.md                  # Mandatory architectural and coding rules
+├── CONTRIBUTING.md            # Community contribution guidelines
+├── LICENSE                    # MIT License
+├── PROJECT_SPEC.md            # Detailed product requirements & user flow
+├── TECHSTACK.md               # Technology choices & specifications
+├── TODO.md                    # Roadmap & milestone tracking
+├── CHANGELOG.md               # Keep a Changelog releases
+├── TESTING_PLAN.md            # Automated testing strategy
 │
-├── frontend/                  # GIAO DIỆN CLIENT (NEXT.JS)
+├── frontend/                  # CLIENT INTERFACE (NEXT.JS 14 APP ROUTER)
 │   ├── src/
-│   │   ├── app/               # Next.js App Router (page.tsx, layout.tsx, globals.css)
-│   │   ├── components/        # AudioDropzone, LyricView, AudioPlayerBar, ExportToolbar...
-│   │   ├── hooks/             # useAudioPlayer (60fps rAF), useLyricSync
-│   │   ├── lib/               # Export utilities (TXT, LRC, SRT, Clipboard), Speech, Time
+│   │   ├── app/               # Page, layout, global styles
+│   │   ├── components/        # AudioDropzone, LyricView, AudioPlayerBar, ExportToolbar
+│   │   ├── hooks/             # useAudioPlayer (60fps rAF), useLyricSync (O(log N))
+│   │   ├── lib/               # Export utilities (TXT, LRC, SRT), Security, Speech
 │   │   └── types/             # Domain TypeScript interfaces
 │   ├── package.json
 │   └── tsconfig.json
 │
-└── backend/                   # MÁY CHỦ XỬ LÝ (ASP.NET CORE .NET 8 LTS)
-    ├── LyricPhonics.sln       # Visual Studio Solution File
+└── backend/                   # SERVER ENGINE (ASP.NET CORE .NET 8 LTS)
+    ├── LyricPhonics.sln       # Visual Studio Solution
     │
     ├── src/
     │   ├── LyricPhonics.Domain/          # Core Entities, Records, Enums, DTOs

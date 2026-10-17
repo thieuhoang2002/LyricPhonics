@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 
 namespace LyricPhonics.Api.Middleware;
@@ -6,7 +6,7 @@ namespace LyricPhonics.Api.Middleware;
 /// <summary>
 /// Middleware xử lý ngoại lệ toàn cục (Global Exception Handler).
 /// 
-/// 💡 KIẾN THỨC C# / PHỎNG VẤN (ASP.NET Core Middleware Pipeline):
+/// 💡 Thiết kế kỹ thuật (ASP.NET Core Middleware Pipeline):
 /// - Đứng ở đầu HTTP Pipeline để bắt mọi lỗi phát sinh từ các tầng bên trong (Controller, Service, Repository).
 /// - Đảm bảo API luôn trả về cấu trúc lỗi JSON nhất quán (theo chuẩn RFC 7807 Problem Details).
 /// - Tuyệt đối không để lộ StackTrace ra ngoài môi trường Production (Bảo mật).

@@ -1,11 +1,11 @@
-using LyricPhonics.Application.Interfaces;
+﻿using LyricPhonics.Application.Interfaces;
 
 namespace LyricPhonics.Api.Endpoints;
 
 /// <summary>
 /// Định nghĩa các Endpoint bóc tách âm thanh sử dụng ASP.NET Core Minimal API.
 /// 
-/// 💡 KIẾN THỨC C# / PHỎNG VẤN (Minimal APIs vs Controllers):
+/// 💡 Thiết kế kỹ thuật (Minimal APIs vs Controllers):
 /// - Minimal APIs xuất hiện từ .NET 6 và hoàn thiện vượt bậc trong .NET 8.
 /// - Loại bỏ lớp Controller cồng kềnh, giảm thiểu tối đa overhead và tăng thông lượng (RPS - Requests Per Second).
 /// - Dễ dàng test, cú pháp lambda gọn gàng, hỗ trợ Dependency Injection trực tiếp vào tham số hàm.
@@ -87,7 +87,7 @@ public static class TranscribeEndpoints
             }
 
             // 4. Mở luồng Stream và chuyển tiếp sang dịch vụ AI
-            // 💡 KIẾN THỨC C#: file.OpenReadStream() không load toàn bộ vào mảng byte[] trên RAM,
+            // 💡 Lưu ý hiệu năng: file.OpenReadStream() không load toàn bộ vào mảng byte[] trên RAM,
             // giúp tiết kiệm bộ nhớ máy chủ tối đa khi có hàng trăm request đồng thời.
             using var stream = file.OpenReadStream();
 

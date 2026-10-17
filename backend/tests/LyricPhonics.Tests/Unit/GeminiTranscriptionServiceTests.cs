@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -14,7 +14,7 @@ namespace LyricPhonics.Tests.Unit;
 /// <summary>
 /// Bộ kiểm thử Unit Test cho GeminiTranscriptionService sử dụng Mock HttpMessageHandler.
 /// 
-/// 💡 KIẾN THỨC C# / PHỎNG VẤN (Testing HttpClient with Moq):
+/// 💡 Thiết kế kỹ thuật (Testing HttpClient with Moq):
 /// - Không thể mock trực tiếp class HttpClient vì các phương thức SendAsync không phải virtual.
 /// - Kỹ thuật chuẩn là mock 'HttpMessageHandler' thông qua Moq 'Protected()' API để giả lập
 ///   phản hồi HTTP từ máy chủ Google Gemini.

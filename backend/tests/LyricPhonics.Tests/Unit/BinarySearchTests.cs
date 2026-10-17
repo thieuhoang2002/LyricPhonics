@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using LyricPhonics.Application.Services;
 using LyricPhonics.Domain.Models;
 using Xunit;
@@ -74,7 +74,7 @@ public class BinarySearchTests
     [Fact]
     public void FindActiveLineIndex_PerformanceWithTenThousandLines_ShouldExecuteUnderTwentyMilliseconds()
     {
-        // 💡 KIẾN THỨC C# / PHỎNG VẤN (Big-O Benchmark Test):
+        // 💡 Thiết kế kỹ thuật (Big-O Benchmark Test):
         // Chứng minh thuật toán Binary Search O(log N) xử lý 10,000 phần tử trong nháy mắt.
         var largeLines = new List<LyricLine>(10000);
         for (int i = 0; i < 10000; i++)
