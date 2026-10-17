@@ -1,35 +1,61 @@
-# dependencies
-/node_modules
-/.pnp
+# ====================================================================
+# ROOT GITIGNORE — LYRICPHONICS MONOREPO (.NET 8 + NEXT.JS)
+# ====================================================================
+
+# --------------------------------------------------------------------
+# 1. C# .NET Build Outputs & IDE Files
+# --------------------------------------------------------------------
+bin/
+obj/
+**/bin/
+**/obj/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+_ReSharper*/
+*.DotSettings.user
+
+# --------------------------------------------------------------------
+# 2. Node.js & Next.js Frontend
+# --------------------------------------------------------------------
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+out/
+**/out/
+dist/
+**/dist/
+.pnp
 .pnp.js
-.yarn/install-state.gz
+coverage/
+**/coverage/
 
-# testing
-/coverage
+# --------------------------------------------------------------------
+# 3. Environment Variables & Secrets (ZERO LEAKAGE GUARD)
+# --------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
 
-# next.js
-/.next/
-/out/
+# Backend local configuration
+appsettings.Development.json
+**/appsettings.Development.json
+appsettings.*.local.json
+**/appsettings.*.local.json
 
-# production
-/build
-
-# misc
+# --------------------------------------------------------------------
+# 4. OS & Miscellaneous
+# --------------------------------------------------------------------
 .DS_Store
-*.pem
-
-# debug
+Thumbs.db
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-# local env files
-.env*.local
-.env
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts

@@ -15,6 +15,20 @@ Tất cả những thay đổi đáng chú ý của dự án **LyricPhonics** s�
 
 ---
 
+## [0.3.0] - 2026-10-17
+
+### Added
+- **Chuyển Đổi Sang Monorepo Full-Stack (.NET 8 LTS Backend + Next.js Frontend):**
+  - **Backend Clean Architecture (.NET 8):** Phân tách 4 project hoàn chỉnh `Domain`, `Application`, `Infrastructure`, `Api`.
+  - **C# 12 Records & High Performance:** Sử dụng `record` immutable, thuật toán Binary Search $O(\log N)$ định vị câu hát thời gian thực, stream nhị phân trực tiếp không buffer RAM.
+  - **Polly v8 Resilience:** Tích hợp `Microsoft.Extensions.Http.Resilience` với Exponential Backoff tự động retry khi gặp lỗi 503/429 từ Google Gemini API.
+  - **Minimal API & OpenAPI:** Triển khai endpoint `POST /api/transcribe` cực nhanh bằng ASP.NET Core Minimal API, sinh tài liệu Swagger UI tự động tại `/swagger`.
+  - **Tách Thư Mục Frontend:** Di chuyển Next.js App Router vào thư mục `frontend/`, kết nối liền mạch với máy chủ C# .NET qua biến môi trường `NEXT_PUBLIC_API_URL`.
+  - **Native Speech Synthesis:** Thêm tính năng nghe phát âm giọng bản xứ chuẩn bằng Web Speech API.
+  - **Kiểm Thử Toàn Diện (62 Tests Passing):** 19/19 xUnit tests backend (.NET 8) và 43/43 Vitest tests frontend (Next.js).
+
+---
+
 ## [0.2.0] - 2026-10-16
 
 ### Added

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LyricPhonics.Api/LyricPhonics.Api.csproj" />
+    <Project Path="src/LyricPhonics.Application/LyricPhonics.Application.csproj" />
+    <Project Path="src/LyricPhonics.Domain/LyricPhonics.Domain.csproj" />
+    <Project Path="src/LyricPhonics.Infrastructure/LyricPhonics.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LyricPhonics.Tests/LyricPhonics.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,144 +1,83 @@
-# TECHNICAL STACK & ARCHITECTURAL GUIDELINES: LYRICPHONICS
+# TECHSTACK.MD — DANH MỤC CÔNG NGHỆ VÀ KIẾN TRÚC MONOREPO
 
-> **Status:** Mandatory Enforcement  
-> **Author:** Principal Software Architect  
-> **Strictness Level:** Strict Mode (No exemptions without Architectural Review)  
-
----
-
-## 1. Approved Technology Stack
-
-Mọi thư viện được sử dụng trong dự án phải tuân thủ danh sách được phê duyệt dưới đây. **Nghiêm cấm tự ý cài đặt thêm các thư viện bên thứ ba** ngoài danh sách này.
-
-### 1.1. Core Framework & Runtime
-| Công nghệ | Phiên bản | Mục đích & Quy định sử dụng |
-| :--- | :--- | :--- |
-| **Node.js** | `>= 20.x LTS` | Runtime môi trường server. |
-| **Next.js** | `^14.2` hoặc `^15.x` | **App Router duy nhất.** Cấm dùng Pages Router (`pages/`). |
-| **React** | `^18.x` hoặc `^19.x` | UI Library. Tận dụng React Server Components & Client Components (`'use client'`). |
-| **TypeScript** | `^5.x` | Strict Mode (`strict: true`). **Tuyệt đối cấm sử dụng kiểu `any`**. |
-
-### 1.2. AI Engine & SDK
-| Thư viện | Phiên bản | Mục đích & Quy định |
-| :--- | :--- | :--- |
-| **`@google/genai`** | Latest official | SDK chính thức của Google cho Gemini 2.0 / 2.5. Chỉ được import và thực thi bên trong Route Handlers (`src/app/api/`). |
-| **`zod`** | `^3.x` | Runtime schema validation cho dữ liệu AI và API payloads. |
-
-### 1.3. UI, Styling & Icons
-| Thư viện | Phiên bản | Mục đích & Quy định |
-| :--- | :--- | :--- |
-| **Tailwind CSS** | `^3.4` | Utility-first CSS. Không viết CSS inline tùy tiện. |
-| **`lucide-react`** | Latest | Bộ icon vector chính thức. Không dùng icon ngoài. |
-| **`clsx` + `tailwind-merge`** | Latest | Tiện ích chuẩn hóa `cn(...)` cho dynamic className. |
-
-### 1.4. Audio Engine & State
-| Công nghệ | Cơ chế | Quy định kiến trúc |
-| :--- | :--- | :--- |
-| **Native HTML5 Audio** | Web Audio API | Dùng native `HTMLAudioElement` bọc trong custom hook `useAudioPlayer`. Không cài đặt thư viện ngoài cồng kềnh (như Howler hay Wavesurfer) để tránh hydration mismatch và bloat bundle. |
-| **Animation Loop** | `requestAnimationFrame` | Dùng để nội suy thời gian phát lại ở 60fps mượt mà, không phụ thuộc duy nhất vào `timeupdate`. |
-
-### 1.5. Testing & Quality
-| Thư viện | Phiên bản | Mục đích |
-| :--- | :--- | :--- |
-| **`vitest`** | `^1.x` / `^2.x` | Test runner siêu tốc cho Unit & Integration tests. |
+> **Dự án:** LyricPhonics (Full-Stack Monorepo: C# .NET 8 LTS + Next.js App Router)  
+> **Cập nhật:** 2026-10-17  
+> **Phiên bản:** v0.3.0  
 
 ---
 
-## 2. Prohibited Libraries & Anti-Patterns (Danh sách cấm)
+## 🏛️ KIẾN TRÚC TỔNG THỂ (CLEAN ARCHITECTURE MONOREPO)
 
-1. **CẤM `pages/` (Pages Router):** Chỉ sử dụng Next.js App Router (`src/app/`).
-2. **CẤM Canvas Waveform Bloatware:** Không dùng `wavesurfer.js` trong MVP do xung đột SSR Next.js, lỗi canvas resize trên mobile và tốn RAM vô ích.
-3. **CẤM `any` trong TypeScript:** Mọi biến, hàm, tham số, interface đều phải có kiểu dữ liệu tường minh. Bắt buộc dùng `unknown` kết hợp type guard hoặc `zod` schema khi parse JSON không xác định.
-4. **CẤM `NEXT_PUBLIC_GEMINI_API_KEY`:** Biến môi trường chứa API secret **bắt buộc** phải là `GEMINI_API_KEY` (không có tiền tố `NEXT_PUBLIC_`), chỉ được truy cập ở Server-side.
-5. **CẤM Thuật toán $O(N^2)$ lồng nhau:** Mọi thao tác tìm kiếm, lọc câu hát, định dạng thời gian trong animation loop phải tối ưu $O(1)$ hoặc $O(\log N)$.
-
----
-
-## 3. Directory Structure Standards (Cấu trúc thư mục chuẩn)
-
-Dự án bắt buộc phải tuân theo cấu trúc tổ chức mã nguồn dưới đây:
-
+```mermaid
+graph TD
+    Client["Browser / Mobile Client"] -->|HTTP / JSON| API["LyricPhonics.Api (.NET 8 Minimal API)"]
+    API -->|DI| App["LyricPhonics.Application (Use Cases & Interfaces)"]
+    App -->|Implements| Infra["LyricPhonics.Infrastructure (Gemini API & Polly)"]
+    App -->|Uses| Domain["LyricPhonics.Domain (Records, Models, Enums)"]
+    Infra -->|Uses| Domain
+    API -->|Uses| Domain
+    Infra -->|HTTP + Stream| Gemini["Google Gemini 3.5 Flash Audio API"]
 ```
+
+---
+
+## ⚙️ BACKEND TECH STACK (.NET 8 LTS)
+
+| Thành phần | Công nghệ / Thư viện | Phiên bản | Mục đích & Điểm nhấn phỏng vấn |
+| :--- | :--- | :--- | :--- |
+| **Runtime & SDK** | **.NET 8 LTS (C# 12)** | `net8.0` | Bản hỗ trợ dài hạn (Long Term Support), hiệu năng đỉnh cao, AOT-ready. |
+| **API Framework** | **ASP.NET Core Minimal APIs** | 8.0 | Khởi động siêu nhanh, cú pháp tinh gọn, benchmark hiệu năng vượt xa Controller truyền thống. |
+| **Kiến trúc** | **Clean Architecture** | 4 Tầng | Phân tách trách nhiệm (SoC): Domain $\to$ Application $\to$ Infrastructure $\to$ Api. |
+| **Fault Tolerance** | `Microsoft.Extensions.Http.Resilience` | 8.x | Polly v8 tích hợp sẵn: Exponential Backoff, Retry mã 503/429, Timeout, Circuit Breaker. |
+| **Tài liệu API** | **Swashbuckle.AspNetCore (Swagger)** | 6.x | Tự động sinh giao diện OpenAPI/Swagger UI kiểm thử trực tiếp trên trình duyệt. |
+| **Serialization** | `System.Text.Json` | Native 8.0 | Strong typing, zero-allocation serialization, loại bỏ hoàn toàn `Newtonsoft.Json`. |
+| **Testing** | **xUnit + FluentAssertions + Moq** | Latest | Bộ 3 tiêu chuẩn vàng của kiểm thử tự động trong các dự án .NET doanh nghiệp. |
+
+---
+
+## 💻 FRONTEND TECH STACK (NEXT.JS)
+
+| Thành phần | Công nghệ / Thư viện | Phiên bản | Mục đích |
+| :--- | :--- | :--- | :--- |
+| **Framework** | **Next.js (App Router)** | ^14.2 | Server & Client Components, routing linh hoạt. |
+| **Ngôn ngữ** | **TypeScript Strict** | ^5.x | Strict mode, zero `any`, đảm bảo type-safety hoàn hảo. |
+| **Giao diện** | **Tailwind CSS + Lucide Icons** | ^3.4 / ^0.450 | UI Cyberpunk hiện đại, responsive, icon âm nhạc trực quan. |
+| **Audio Sync** | **HTML5 Audio + rAF** | Native | Vòng lặp `requestAnimationFrame` 60fps đồng bộ highlight câu hát mượt mà. |
+| **Speech** | **Web Speech Synthesis API** | Native | Phát âm chuẩn giọng bản xứ (Bắc Kinh, Tokyo, Seoul...) không tốn phí API. |
+
+---
+
+## 📁 CẤU TRÚC THƯ MỤC CHUẨN (MONOREPO DIRECTORY MAP)
+
+```text
 LyricPhonics/
-├── docs/                                 # Tài liệu kế hoạch, context, memory của Coding Friend
-├── public/                               # Static assets (favicon, mẫu audio test)
-├── src/
-│   ├── app/                              # Next.js App Router
-│   │   ├── api/                          # Server-side API Route Handlers
-│   │   │   └── transcribe/
-│   │   │       └── route.ts              # Route bóc tách audio qua Gemini SDK
-│   │   ├── globals.css                   # Global styles + Tailwind directives + Karaoke animations
-│   │   ├── layout.tsx                    # Root Layout (Fonts, Metadata)
-│   │   └── page.tsx                      # Main Workspace Page (Single Page App)
-│   ├── components/                       # UI Components (Phân tách rõ ràng)
-│   │   ├── upload/                       # Drag & drop upload components
-│   │   │   └── AudioDropzone.tsx
-│   │   ├── player/                       # Audio playback controls
-│   │   │   └── AudioPlayerBar.tsx
-│   │   ├── lyrics/                       # Lyrics presentation & editor
-│   │   │   ├── LyricView.tsx             # Danh sách câu hát auto-scroll
-│   │   │   ├── LyricLineItem.tsx         # Từng dòng 3 tầng: Gốc, Phiên âm, Nghĩa
-│   │   │   └── LyricEditorControls.tsx   # Nút chỉnh thời gian +/- 0.5s
-│   │   ├── export/                       # Export actions
-│   │   │   └── ExportToolbar.tsx         # Nút xuất TXT, LRC, SRT, Clipboard
-│   │   └── ui/                           # Primitives tái sử dụng (Button, Modal, Toast)
-│   ├── hooks/                            # Custom React Hooks
-│   │   ├── useAudioPlayer.ts             # Quản lý phát nhạc HTML5 Audio + rAF 60fps
-│   │   └── useLyricSync.ts               # Thuật toán tìm câu đang hát (Binary Search)
-│   ├── lib/                              # Core Business Logic & Pure Utilities
-│   │   ├── gemini/
-│   │   │   ├── client.ts                 # Khởi tạo Gemini client an toàn
-│   │   │   ├── prompts.ts                # System prompt phiên âm tiếng Việt
-│   │   │   └── schema.ts                 # Zod & Gemini Response JSON Schema
-│   │   ├── export/
-│   │   │   ├── txt.ts                    # Formatter file TXT
-│   │   │   ├── lrc.ts                    # Formatter file Karaoke LRC [mm:ss.xx]
-│   │   │   ├── srt.ts                    # Formatter phụ đề video SRT
-│   │   │   └── clipboard.ts              # Clipboard helper
-│   │   ├── security/
-│   │   │   └── sanitize.ts               # Input validation & XSS sanitization
-│   │   └── utils/
-│   │       ├── time.ts                   # Chuyển đổi giây <-> [mm:ss.xx]
-│   │       └── binary-search.ts          # Thuật toán tìm kiếm O(log N) cho lyric lines
-│   └── types/                            # Strict TypeScript Definitions
-│       ├── lyrics.ts                     # LyricLine, TranscriptionResult interfaces
-│       └── player.ts                     # AudioPlayerState, PlaybackRate types
-├── .env.example                          # Mẫu cấu hình môi trường chuẩn
-├── next.config.mjs                       # Cấu hình Next.js (max payload, stream)
-├── package.json                          # Khai báo dependency chính thức
-├── tailwind.config.ts                    # Cấu hình giao diện Tailwind
-├── tsconfig.json                         # TypeScript Strict Mode configuration
-└── vitest.config.ts                      # Cấu hình kiểm thử tự động
+├── AGENTS.md                  # Quy tắc bắt buộc cho AI IDE & Lập trình viên
+├── PROJECT_SPEC.md            # Đặc tả yêu cầu bài toán & User flow
+├── TECHSTACK.md               # Bản đặc tả kỹ thuật này
+├── TODO.md                    # Lộ trình Sprint & Công việc
+├── CHANGELOG.md               # Nhật ký thay đổi chuẩn Keep a Changelog
+├── TESTING_PLAN.md            # Chiến lược kiểm thử Backend & Frontend
+├── .gitignore                 # Loại trừ bin/, obj/, node_modules, .env*, secrets
+│
+├── frontend/                  # GIAO DIỆN CLIENT (NEXT.JS)
+│   ├── src/
+│   │   ├── app/               # Next.js App Router (page.tsx, layout.tsx, globals.css)
+│   │   ├── components/        # AudioDropzone, LyricView, AudioPlayerBar, ExportToolbar...
+│   │   ├── hooks/             # useAudioPlayer (60fps rAF), useLyricSync
+│   │   ├── lib/               # Export utilities (TXT, LRC, SRT, Clipboard), Speech, Time
+│   │   └── types/             # Domain TypeScript interfaces
+│   ├── package.json
+│   └── tsconfig.json
+│
+└── backend/                   # MÁY CHỦ XỬ LÝ (ASP.NET CORE .NET 8 LTS)
+    ├── LyricPhonics.sln       # Visual Studio Solution File
+    │
+    ├── src/
+    │   ├── LyricPhonics.Domain/          # Core Entities, Records, Enums, DTOs
+    │   ├── LyricPhonics.Application/     # Interfaces, Services, LRC parser, Binary search
+    │   ├── LyricPhonics.Infrastructure/  # Gemini API Client, Polly Resilience, Logging
+    │   └── LyricPhonics.Api/             # Minimal API Endpoints, Middleware, Swagger UI
+    │
+    └── tests/
+        └── LyricPhonics.Tests/           # xUnit Unit & Integration Tests
 ```
-
----
-
-## 4. Architectural Patterns & Data Flow
-
-### 4.1. Server-Side Secrets Isolation Pattern
-```
-[Client Browser]
-       │
-       │ (1) Gửi FormData (audio file) qua HTTP POST
-       ▼
-[Next.js Server: /api/transcribe] ─── Chứa GEMINI_API_KEY trong process.env
-       │
-       │ (2) Gọi @google/genai SDK (Google AI File API hoặc inline buffer)
-       ▼
-[Google Gemini Multimodal Audio API]
-       │
-       │ (3) Trả về JSON Schema tuân thủ nghiêm ngặt
-       ▼
-[Next.js Server: Sanitize & Validate Zod]
-       │
-       │ (4) Trả về JSON sạch an toàn cho Client
-       ▼
-[Client Browser: React In-Memory State]
-```
-
-### 4.2. Time-Synchronized Karaoke Engine (60fps rAF)
-Để đạt độ mượt tuyệt đối và không giật lag UI:
-- Không kích hoạt re-render toàn bộ danh sách khi `currentTime` thay đổi nhỏ.
-- Hook `useLyricSync` sử dụng thuật toán **Binary Search $O(\log N)$** trên mảng `lines` đã sắp xếp theo `startTime` để tìm kiếm `activeLineIndex`.
-- Chỉ cập nhật `activeLineIndex` khi có sự chuyển đổi giữa các câu hát.
-- Dùng `requestAnimationFrame` đồng bộ thanh trượt tiến độ (scrub bar) độc lập qua direct DOM ref để tránh React re-render nghẽn luồng UI.

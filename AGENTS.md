@@ -1,64 +1,55 @@
-# AGENTS.md — MANDATORY AI CODING RULES & ARCHITECTURAL GUARDRAILS
+# AGENTS.md — MANDATORY CODING RULES & ARCHITECTURAL GUARDRAILS (.NET 8 & NEXT.JS)
 
-> **Target Audience:** All AI Coding Assistants (Gemini, Claude, GPT, Cursor, Copilot, Antigravity)  
-> **Authority:** Principal Software Architect  
-> **Enforcement:** ABSOLUTE & NON-NEGOTIABLE. READ BEFORE EXECUTING ANY TASK.  
-
----
-
-## 🚨 MISSION CRITICAL GROUND RULES
-
-Mọi AI Agent khi làm việc trên kho mã nguồn **LyricPhonics** BẮT BUỘC phải đọc và tuân thủ các quy tắc dưới đây. Bất kỳ đoạn mã nào vi phạm một trong các điều sau sẽ bị từ chối và yêu cầu viết lại hoàn toàn.
-
-### 1. TypeScript Nghiêm ngặt (Strict Typing — Zero `any`)
-- **CẤM TUYỆT ĐỐI:** Không bao giờ sử dụng kiểu `any` (`any`, `any[]`, `Record<string, any>`).
-- Khi kiểu dữ liệu chưa xác định rõ (ví dụ: dữ liệu từ API hoặc file tải lên), BẮT BUỘC dùng `unknown` kết hợp với Zod Schema hoặc TypeScript Type Guards.
-- Mọi hàm, component props, hook return values phải có khai báo kiểu dữ liệu tường minh (explicit return types).
-- Bật `strict: true` trong `tsconfig.json`. Lệnh `npx tsc --noEmit` phải luôn luôn đạt 0 lỗi.
-
-### 2. Tối ưu Hiệu năng & Big-O ngay từ đầu (Performance First)
-- **CẤM THUẬT TOÁN $O(N^2)$ LỒNG NHAU:** Tuyệt đối không dùng vòng lặp lồng nhau (`array.find` hoặc `array.filter` bên trong `array.map`/vòng lặp khác) khi xử lý danh sách dòng lời bài hát.
-- **Tra cứu thời gian $O(\log N)$ hoặc $O(1)$:**
-  - Danh sách câu hát theo thời gian BẮT BUỘC phải được sắp xếp theo `startTime`.
-  - Tìm kiếm câu hát tương ứng với `currentTime` phải dùng thuật toán **Binary Search $O(\log N)$** (xem `src/lib/utils/binary-search.ts`).
-  - Sử dụng `Map` hoặc `Set` để tra cứu theo ID với độ phức tạp $O(1)$.
-- **Karaoke Sync ở 60fps:** Đồng bộ vị trí thời gian phát nhạc phải dùng `requestAnimationFrame`, không ép toàn bộ React Component Tree re-render liên tục ở mỗi mili-giây.
-
-### 3. Cách ly 100% API Secrets & Biến Môi trường (Zero Leakage)
-- **`GEMINI_API_KEY` chỉ tồn tại ở Server-side:**
-  - Tuyệt đối KHÔNG ĐƯỢC đặt tên biến là `NEXT_PUBLIC_GEMINI_API_KEY`.
-  - Tuyệt đối KHÔNG ĐƯỢC gọi SDK Google Gemini trực tiếp từ Client Component (`'use client'`).
-  - Toàn bộ các thao tác AI phải thông qua Next.js Server Route Handler: `POST /api/transcribe`.
-- Kiểm tra dữ liệu đầu vào (Content Isolation) và khử độc (Sanitize) 100% văn bản do AI trả về trước khi hiển thị trên giao diện người dùng để ngăn ngừa XSS và Prompt Injection.
-
-### 4. Kiến trúc & Ngăn chặn Code Cũ (No Deprecated / Outdated Patterns)
-- **Chỉ sử dụng Next.js App Router (`src/app/`):** Không bao giờ tạo hoặc đề xuất code thuộc Pages Router cũ (`pages/`, `getStaticProps`, `getServerSideProps`).
-- **Không dùng thư viện cồng kềnh:** Không cài đặt `wavesurfer.js`, `howler.js` hay các thư viện canvas âm thanh gây lỗi SSR hydration mismatch. Sử dụng native HTML5 Audio qua custom hook `useAudioPlayer`.
-- **SDK Gemini Hiện đại:** Sử dụng SDK chính thức mới `@google/genai` với cú pháp hiện đại và `responseSchema` ép kiểu JSON có cấu trúc.
-- **Không viết code ẩu / Placeholder:** Cấm viết `TODO`, `TBD`, `// implement later`, `// code goes here`. Mỗi task khi hoàn thành phải là mã nguồn hoàn chỉnh, chạy được và có kiểm thử xác thực.
-
-### 5. Bộ nhớ Trình duyệt & Giới hạn `localStorage`
-- `localStorage` chỉ có giới hạn ~5MB: Chỉ được phép lưu trữ JSON metadata bài hát và mảng `lines` (lời + timestamp).
-- **TUYỆT ĐỐI KHÔNG** lưu audio binary, audio base64 hay audio blob vào `localStorage`. File âm thanh chỉ tồn tại trong RAM qua Object URL (`URL.createObjectURL(file)`) trong phiên làm việc.
+> **Mục tiêu:** Tài liệu quy chuẩn kỹ thuật bắt buộc cho toàn bộ AI Coding Assistants và Nhà phát triển.  
+> **Cương vị:** Principal Software Architect  
+> **Hiệu lực:** BẮT BUỘC & TUÂN THỦ 100%. Áp dụng cho cả C# .NET 8 LTS (Backend) và Next.js (Frontend).  
 
 ---
 
-## 📁 REFERENCE DOCUMENTS MAP
+## 🚨 MISSION CRITICAL GROUND RULES (.NET 8 BACKEND)
 
-Trước khi tạo mới component hay module, hãy tham khảo các file đặc tả đã được phê duyệt:
-- [`PROJECT_SPEC.md`](file:///c:/Users/thhoang/Desktop/LyricPhonics/PROJECT_SPEC.md): Đặc tả bài toán, user flow, tính năng chi tiết.
-- [`TECHSTACK.md`](file:///c:/Users/thhoang/Desktop/LyricPhonics/TECHSTACK.md): Danh mục thư viện được phép dùng và cấu trúc thư mục chuẩn.
-- [`TODO.md`](file:///c:/Users/thhoang/Desktop/LyricPhonics/TODO.md): Danh sách công việc theo Sprint / Milestone.
-- [`TESTING_PLAN.md`](file:///c:/Users/thhoang/Desktop/LyricPhonics/TESTING_PLAN.md): Chiến lược viết unit test và integration test.
-- [`CHANGELOG.md`](file:///c:/Users/thhoang/Desktop/LyricPhonics/CHANGELOG.md): Tiêu chuẩn ghi nhận thay đổi mã nguồn.
-- [`docs/plans/2026-10-16-lyric-phonics-core/`](file:///c:/Users/thhoang/Desktop/LyricPhonics/docs/plans/2026-10-16-lyric-phonics-core/): Kế hoạch triển khai 3 Phase chi tiết.
+Mọi đoạn mã C# viết cho hệ thống **LyricPhonics Backend** phải tuân thủ nghiêm ngặt các quy tắc kiến trúc và hiệu năng dưới đây:
+
+### 1. Kiến Trúc Chuẩn Clean Architecture (Tách bạch 4 tầng)
+- **`LyricPhonics.Domain`:** Chứa Entities, Value Objects, Enums, DTOs cơ bản. **CẤM** phụ thuộc vào bất kỳ thư viện bên ngoài hay tầng nào khác.
+- **`LyricPhonics.Application`:** Chứa Interfaces (`ITranscriptionService`, `ILrcService`), Use Cases và Business Logic. Chỉ phụ thuộc vào `Domain`.
+- **`LyricPhonics.Infrastructure`:** Chứa triển khai dịch vụ ngoài: `GeminiTranscriptionService`, `HttpClient`, Polly Resilience Handler, Logging. Chỉ phụ thuộc vào `Application` và `Domain`.
+- **`LyricPhonics.Api`:** Chứa ASP.NET Core Minimal API Endpoints, Middleware (CORS, Rate Limiting, Exception Handling), Swagger. Phụ thuộc vào `Infrastructure`, `Application`, `Domain`.
+- **`LyricPhonics.Tests`:** Chứa toàn bộ xUnit Unit Tests, kiểm thử tự động với `FluentAssertions` và `Moq`.
+
+### 2. Tối Ưu Hiệu Năng & Bộ Nhớ Trong C# (Performance & Memory First)
+- **CẤM BUFFER TOÀN BỘ FILE VÀO MẢNG BYTE (`byte[]`):**
+  - Không bao giờ dùng `BinaryReader.ReadBytes()` hoặc `File.ReadAllBytes()` cho file âm thanh lớn.
+  - BẮT BUỘC dùng **`Stream`** (`IFormFile.OpenReadStream()`, `StreamContent`) để truyền trực tiếp dữ liệu âm thanh dạng stream sang Google Gemini API.
+- **TỐI ƯU CẤP PHÁT BỘ NHỚ (ZERO/LOW-ALLOCATION):**
+  - Sử dụng `ReadOnlySpan<char>` khi parse chuỗi thời gian hoặc cắt chuỗi LRC `[mm:ss.xx]`, tránh gọi `string.Split()` tạo rác cho Garbage Collector (GC).
+  - Sử dụng C# 12 `record` (immutable data structures) cho các DTOs.
+  - Sử dụng `System.Text.Json` thuần (không dùng `Newtonsoft.Json`), cấu hình serialize/deserialize strongly typed. Tuyệt đối **CẤM DÙNG KIỂU `dynamic` HOẶC `object`**.
+- **TRA CỨU DÒNG LỜI THỜI GIAN THỰC $O(\log N)$:**
+  - Danh sách `LyricLine` luôn được sắp xếp theo `StartTime`.
+  - Tìm kiếm câu hát theo `currentTime` phải dùng thuật toán **Binary Search $O(\log N)$**, không dùng vòng lặp tuyến tính $O(N)$ lặp liên tục.
+
+### 3. Kháng Lỗi & Phục Hồi Tự Động (Resilience & Fault Tolerance với Polly)
+- Mọi kết nối HTTP ra bên ngoài (Gemini API) BẮT BUỘC phải đăng ký qua `IHttpClientFactory` kết hợp `Microsoft.Extensions.Http.Resilience` (Polly).
+- Tự động bắt mã lỗi `503 Service Unavailable` và `429 Too Many Requests` để Retry theo thuật toán **Exponential Backoff with Jitter** trước khi trả lỗi về Client.
+
+### 4. Cách Ly 100% Bí Mật & API Key (Zero Secret Leakage)
+- `GEMINI_API_KEY` chỉ được đọc từ:
+  1. Biến môi trường hệ thống (`Environment.GetEnvironmentVariable("GEMINI_API_KEY")`).
+  2. `IConfiguration["GEMINI_API_KEY"]` từ file `appsettings.Development.json` (đã gitignore).
+- **TUYỆT ĐỐI CẤM:** Không hardcode API key vào code C#, không commit file có chứa key thật lên Git repository. File `appsettings.json` chỉ chứa placeholder rỗng.
+
+### 5. Tiêu Chuẩn Chú Thích Mã Nguồn Cho Mục Tiêu Học Tập & Phỏng Vấn
+- Mọi class, interface, method cốt lõi phải có **XML Documentation Comments (`/// <summary>`)** và chú thích tiếng Việt có dấu chi tiết, giải thích rõ:
+  - Mục đích thiết kế (Design Pattern: DI, Strategy, Decorator...).
+  - Tại sao dùng cú pháp này (Ví dụ: `IFormFile`, `async/await`, `CancellationToken`, `Stream`, `Polly`).
+  - Điểm nổi bật để tự tin trả lời phỏng vấn kỹ thuật.
 
 ---
 
-## 🛡️ CODING PROTOCOL FOR AI IMPLEMENTATION
+## 🎨 FRONTEND GUARDRAILS (NEXT.JS)
 
-Mỗi khi nhận nhiệm vụ code chức năng:
-1. **Kiểm tra Type:** Khai báo kiểu trước, viết logic sau.
-2. **Kiểm tra Big-O:** Tự hỏi hàm này có bị lặp lồng $O(N^2)$ không? Nếu có $\to$ chuyển thành Map/Set hoặc Binary Search.
-3. **Kiểm tra Client/Server Boundary:** Code này chạy ở đâu? Có dính secret key không?
-4. **Kiểm tra Test:** Viết unit test đi kèm để chứng minh code chạy đúng và không bị regression.
+- Mã nguồn nằm độc lập trong thư mục `frontend/`.
+- Sử dụng Next.js App Router, TypeScript Strict Mode (`strict: true`, zero `any`), Tailwind CSS.
+- Đồng bộ Karaoke bằng `requestAnimationFrame` 60fps qua `useAudioPlayer` và `useLyricSync`.
+- Gọi API Backend C# qua biến môi trường `NEXT_PUBLIC_API_URL` (mặc định: `http://localhost:5000`).
