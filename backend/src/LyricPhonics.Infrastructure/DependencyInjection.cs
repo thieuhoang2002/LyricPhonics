@@ -52,28 +52,51 @@ public static class DependencyInjection
         });
 
         // 3. Cấu hình PostgreSQL (Neon Serverless DB) với EF Core
-        string? connectionString = configuration.GetConnectionString("NeonPostgres")
-            ?? Environment.GetEnvironmentVariable("DATABASE_URL");
+        string? connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
 
-        if (!string.IsNullOrWhiteSpace(connectionString))
+        if (string.IsNullOrWhiteSpace(connectionString))
         {
-            string npgsqlConnectionString = NormalizePostgreSqlConnectionString(connectionString);
-
-            services.AddDbContext<LyricPhonicsDbContext>(options =>
-            {
-                options.UseNpgsql(npgsqlConnectionString, npgsqlOptions =>
-                {
-                    npgsqlOptions.EnableRetryOnFailure(
-                        maxRetryCount: 3,
-                        maxRetryDelay: TimeSpan.FromSeconds(5),
-                        errorCodesToAdd: null
-                    );
-                });
-            });
-
-            services.AddScoped<ITrackRepository, TrackRepository>();
-            services.AddScoped<IUserRepository, UserRepository>();
+            var neonConn = configuration.GetConnectionString("NeonPostgres");
+            if (!string.IsNullOrWhiteSpace(neonConn)) connectionString = neonConn;
         }
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            var defConn = configuration.GetConnectionString("DefaultConnection");
+            if (!string.IsNullOrWhiteSpace(defConn)) connectionString = defConn;
+        }
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            var envConn = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+                ?? Environment.GetEnvironmentVariable("ConnectionStrings__NeonPostgres");
+            if (!string.IsNullOrWhiteSpace(envConn)) connectionString = envConn;
+        }
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            var configDb = configuration["DATABASE_URL"];
+            if (!string.IsNullOrWhiteSpace(configDb)) connectionString = configDb;
+        }
+
+        string npgsqlConnectionString = !string.IsNullOrWhiteSpace(connectionString)
+            ? NormalizePostgreSqlConnectionString(connectionString)
+            : "Host=127.0.0.1;Port=5432;Database=lyricphonics;Username=dummy;Password=dummy";
+
+        services.AddDbContext<LyricPhonicsDbContext>(options =>
+        {
+            options.UseNpgsql(npgsqlConnectionString, npgsqlOptions =>
+            {
+                npgsqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 3,
+                    maxRetryDelay: TimeSpan.FromSeconds(5),
+                    errorCodesToAdd: null
+                );
+            });
+        });
+
+        services.AddScoped<ITrackRepository, TrackRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
 
         // 4. Đăng ký PhonicsRegenerationService (Groq AI & Gemini Fallback)
         services.AddHttpClient<IPhonicsRegenerationService, PhonicsRegenerationService>(client =>
