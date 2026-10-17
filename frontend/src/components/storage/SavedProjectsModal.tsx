@@ -20,12 +20,13 @@ import {
   type SavedProject,
 } from '@/lib/storage/projectStore';
 import type { TranscriptionResult } from '@/types/lyrics';
+import { getApiBaseUrl } from '@/lib/api/config';
 
 interface SavedProjectsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectProject: (project: SavedProject) => void;
-  onSelectCloudTrack?: (track: { metadata: any; lines: any[] }) => void;
+  onSelectCloudTrack?: (track: { metadata: any; lines: any[]; audioUrl?: string }) => void;
   currentProjectId?: string | null;
 }
 
@@ -34,6 +35,7 @@ interface CloudTrackSummary {
   title: string;
   artist: string;
   fileName: string;
+  audioUrl?: string;
   detectedLanguage: string;
   duration: number;
   createdAt: string;
@@ -62,10 +64,7 @@ export function SavedProjectsModal({
   const loadCloudList = useCallback(async () => {
     setIsLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
-        ? `${process.env.NEXT_PUBLIC_API_URL}/api/tracks`
-        : 'http://localhost:5000/api/tracks';
-
+      const apiUrl = `${getApiBaseUrl()}/api/tracks`;
       const res = await fetch(apiUrl);
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
@@ -100,10 +99,7 @@ export function SavedProjectsModal({
 
   const handleSelectCloud = async (id: string) => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
-        ? `${process.env.NEXT_PUBLIC_API_URL}/api/tracks/${id}`
-        : `http://localhost:5000/api/tracks/${id}`;
-
+      const apiUrl = `${getApiBaseUrl()}/api/tracks/${id}`;
       const res = await fetch(apiUrl);
       const json = await res.json();
       if (json.success && json.data) {

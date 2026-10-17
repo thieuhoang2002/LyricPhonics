@@ -42,6 +42,7 @@ import {
   clearAuthToken,
   type UserProfile,
 } from '@/lib/auth/authStore';
+import { getApiBaseUrl } from '@/lib/api/config';
 
 export default function Home(): React.JSX.Element {
   const [file, setFile] = useState<File | null>(null);
@@ -163,9 +164,7 @@ export default function Home(): React.JSX.Element {
         formData.append('file', selectedFile);
         formData.append('targetLang', targetLanguage);
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/transcribe`
-          : 'http://localhost:5000/api/transcribe';
+        const apiUrl = `${getApiBaseUrl()}/api/transcribe`;
 
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -350,12 +349,16 @@ export default function Home(): React.JSX.Element {
     [player, targetLanguage]
   );
 
-  // Chọn mở một bài hát từ Cloud Database (Neon PostgreSQL)
+  // Chọn mở một bài hát từ Cloud Database (Neon PostgreSQL & Cloudflare R2)
   const handleSelectCloudTrack = useCallback(
-    (cloudTrack: { metadata: any; lines: any[] }): void => {
+    (cloudTrack: { metadata: any; lines: any[]; audioUrl?: string }): void => {
       player.reset();
       setFile(null);
-      setAudioUrl(null);
+      if (cloudTrack.audioUrl) {
+        setAudioUrl(cloudTrack.audioUrl);
+      } else {
+        setAudioUrl(null);
+      }
       currentBlobRef.current = null;
       setCurrentProjectId(null);
       setTranscription({
@@ -363,7 +366,7 @@ export default function Home(): React.JSX.Element {
         lines: cloudTrack.lines,
       });
 
-      setSaveStatus(targetLanguage === 'vi' ? 'Đã tải bài hát từ Neon PostgreSQL' : 'Loaded from Neon PostgreSQL');
+      setSaveStatus(targetLanguage === 'vi' ? 'Đã tải bài hát từ Cloud' : 'Loaded from Cloud');
       setTimeout(() => setSaveStatus(null), 3000);
     },
     [player, targetLanguage]

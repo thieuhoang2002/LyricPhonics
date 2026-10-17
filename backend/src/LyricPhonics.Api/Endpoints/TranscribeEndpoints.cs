@@ -167,8 +167,36 @@ public static class TranscribeEndpoints
                 cancellationToken
             );
 
-            // 5. Tự động lưu trữ bài hát và lời 4 tầng vào PostgreSQL (Neon DB)
+            // 5. Tự động tải file âm thanh lên Cloudflare R2 và lưu trữ thông tin vào PostgreSQL
+            Guid newTrackId = Guid.NewGuid();
             Guid? savedTrackId = null;
+            string? audioUrl = null;
+            string? storageKey = null;
+
+            var storageService = serviceProvider.GetService<IStorageService>();
+            if (storageService != null && storageService.IsConfigured)
+            {
+                try
+                {
+                    using var uploadStream = file.OpenReadStream();
+                    var uploadResult = await storageService.UploadAudioAsync(
+                        uploadStream,
+                        file.FileName,
+                        contentType,
+                        userId.Value,
+                        newTrackId,
+                        cancellationToken
+                    );
+                    audioUrl = uploadResult.audioUrl;
+                    storageKey = uploadResult.storageKey;
+                }
+                catch (Exception r2Ex)
+                {
+                    var logger = serviceProvider.GetService<ILoggerFactory>()?.CreateLogger("TranscribeEndpoints");
+                    logger?.LogWarning(r2Ex, "Không thể tải file âm thanh lên Cloudflare R2.");
+                }
+            }
+
             var trackRepository = serviceProvider.GetService<ITrackRepository>();
             if (trackRepository != null)
             {
@@ -176,6 +204,7 @@ public static class TranscribeEndpoints
                 {
                     var saved = await trackRepository.SaveTrackAsync(new LyricPhonics.Domain.Entities.TrackEntity
                     {
+                        Id = newTrackId,
                         UserId = userId,
                         Title = result.Metadata.Title ?? Path.GetFileNameWithoutExtension(file.FileName),
                         Artist = result.Metadata.Artist ?? "Unknown Artist",
@@ -183,7 +212,9 @@ public static class TranscribeEndpoints
                         DetectedLanguage = result.Metadata.DetectedLanguage ?? "auto",
                         TargetLanguage = targetLang,
                         Duration = result.Lines.Count > 0 ? result.Lines.Max(l => l.EndTime) : 0,
-                        LinesJson = System.Text.Json.JsonSerializer.Serialize(result.Lines)
+                        LinesJson = System.Text.Json.JsonSerializer.Serialize(result.Lines),
+                        AudioUrl = audioUrl,
+                        AudioStorageKey = storageKey
                     }, cancellationToken);
                     savedTrackId = saved.Id;
                 }
@@ -207,6 +238,7 @@ public static class TranscribeEndpoints
             {
                 success = true,
                 trackId = savedTrackId,
+                audioUrl = audioUrl,
                 songCredits = Math.Max(0, remainingCredits),
                 metadata = result.Metadata,
                 lines = result.Lines

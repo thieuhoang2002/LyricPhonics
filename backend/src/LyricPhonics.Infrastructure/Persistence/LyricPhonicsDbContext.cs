@@ -31,6 +31,8 @@ public class LyricPhonicsDbContext : DbContext
             entity.Property(e => e.FileName).HasMaxLength(500);
             entity.Property(e => e.DetectedLanguage).HasMaxLength(50);
             entity.Property(e => e.LinesJson).HasColumnType("jsonb");
+            entity.Property(e => e.AudioUrl).HasMaxLength(1000);
+            entity.Property(e => e.AudioStorageKey).HasMaxLength(500);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("NOW()");
         });

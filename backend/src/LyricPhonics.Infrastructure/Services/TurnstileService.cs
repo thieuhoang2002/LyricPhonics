@@ -50,7 +50,11 @@ public class TurnstileService : ITurnstileService
             return false;
         }
 
-        string secretKey = _configuration["Cloudflare:TurnstileSecretKey"] ?? "1x0000000000000000000000000000000AA";
+        string secretKey = _configuration["Cloudflare:TurnstileSecretKey"]
+            ?? _configuration["CloudflareTurnstile:SecretKey"]
+            ?? _configuration["TURNSTILE_SECRET_KEY"]
+            ?? Environment.GetEnvironmentVariable("TURNSTILE_SECRET_KEY")
+            ?? "1x0000000000000000000000000000000AA";
 
         try
         {

@@ -23,6 +23,16 @@ public class TrackEntity
     public Guid? UserId { get; set; }
 
     /// <summary>
+    /// URL công khai hoặc URL phát trực tuyến file nhạc lưu trên Cloudflare R2
+    /// </summary>
+    public string? AudioUrl { get; set; }
+
+    /// <summary>
+    /// Khóa định danh file trong bucket Cloudflare R2 (ví dụ: tracks/{userId}/{trackId}.mp3)
+    /// </summary>
+    public string? AudioStorageKey { get; set; }
+
+    /// <summary>
     /// Chuỗi JSON của mảng LyricLine (được lưu dưới dạng cột jsonb trong Postgres)
     /// </summary>
     public string LinesJson { get; set; } = "[]";

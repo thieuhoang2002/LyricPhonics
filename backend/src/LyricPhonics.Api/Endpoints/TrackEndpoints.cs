@@ -39,6 +39,7 @@ public static class TrackEndpoints
                 title = t.Title,
                 artist = t.Artist,
                 fileName = t.FileName,
+                audioUrl = t.AudioUrl,
                 detectedLanguage = t.DetectedLanguage,
                 targetLanguage = t.TargetLanguage,
                 duration = t.Duration,
@@ -89,6 +90,7 @@ public static class TrackEndpoints
                 data = new
                 {
                     id = track.Id,
+                    audioUrl = track.AudioUrl,
                     metadata = new TranscriptionMetadata(
                         Title: track.Title,
                         Artist: track.Artist,
@@ -114,10 +116,26 @@ public static class TrackEndpoints
                 return Results.BadRequest(new { success = false, error = "Database chưa được cấu hình." });
             }
 
+            var track = await repository.GetTrackByIdAsync(id, cancellationToken);
+            if (track == null)
+            {
+                return Results.NotFound(new { success = false, error = $"Không tìm thấy bài hát có mã {id}" });
+            }
+
+            // Nếu có file trên Cloudflare R2, tiến hành xóa file
+            if (!string.IsNullOrWhiteSpace(track.AudioStorageKey))
+            {
+                var storageService = serviceProvider.GetService<IStorageService>();
+                if (storageService != null)
+                {
+                    await storageService.DeleteAudioAsync(track.AudioStorageKey, cancellationToken);
+                }
+            }
+
             bool deleted = await repository.DeleteTrackAsync(id, cancellationToken);
             if (!deleted)
             {
-                return Results.NotFound(new { success = false, error = $"Không tìm thấy bài hát có mã {id}" });
+                return Results.NotFound(new { success = false, error = $"Không thể xóa bài hát có mã {id}" });
             }
 
             return Results.Ok(new { success = true, message = "Đã xóa bài hát khỏi cơ sở dữ liệu." });

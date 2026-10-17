@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, Lock, Mail, ShieldCheck, Loader2, Sparkles } from 'lucide-react';
 import { setAuthToken, type UserProfile } from '@/lib/auth/authStore';
 import { getApiBaseUrl } from '@/lib/api/config';
+import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
 
 export interface AuthModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ export function AuthModal({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [turnstilePassed, setTurnstilePassed] = useState<boolean>(true); // Mock / dev verified
+  const [turnstileToken, setTurnstileToken] = useState<string>('');
 
   if (!isOpen) return null;
 
@@ -60,12 +61,12 @@ export function AuthModal({
             email: email.trim(),
             password: password,
             confirmPassword: confirmPassword,
-            turnstileToken: '1x0000000000000000000000000000000AA', // Cloudflare Turnstile token
+            turnstileToken: turnstileToken || 'dev_mock_turnstile_pass',
           }
         : {
             email: email.trim(),
             password: password,
-            turnstileToken: '1x0000000000000000000000000000000AA',
+            turnstileToken: turnstileToken || 'dev_mock_turnstile_pass',
           };
 
       const res = await fetch(endpoint, {
@@ -216,20 +217,16 @@ export function AuthModal({
             </div>
           )}
 
-          {/* Cloudflare Turnstile anti-bot badge */}
-          <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#111112] border border-[#222224] text-[11px] text-zinc-400">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Bảo vệ chống spam bot Cloudflare Turnstile</span>
-            </div>
-            <span className="font-mono text-[10px] text-emerald-400 font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10">
-              Verified
-            </span>
-          </div>
+          {/* Cloudflare Turnstile anti-bot widget */}
+          <TurnstileWidget
+            onVerify={(token) => setTurnstileToken(token)}
+            onError={() => setErrorMessage('Xác thực Cloudflare Turnstile thất bại.')}
+            onExpire={() => setTurnstileToken('')}
+          />
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !turnstileToken}
             className="w-full py-2.5 rounded-xl bg-[#2836f7] hover:bg-[#424ef5] text-white font-medium text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#2836f7]/25 transition-colors disabled:opacity-50"
           >
             {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}

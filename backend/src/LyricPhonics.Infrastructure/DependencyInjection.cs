@@ -89,6 +89,9 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IAdminService, AdminService>();
 
+        // 6. Đăng ký Cloudflare R2 Storage Service
+        services.AddSingleton<IStorageService, CloudflareR2StorageService>();
+
         return services;
     }
 
