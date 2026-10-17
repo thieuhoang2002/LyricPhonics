@@ -86,6 +86,14 @@ app.MapGet("/", () => Results.Ok(new
 .WithTags("Health")
 .ExcludeFromDescription();
 
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "Healthy",
+    timestamp = DateTime.UtcNow
+}))
+.WithTags("Health")
+.WithSummary("Kiểm tra trạng thái hoạt động (Health check ping)");
+
 // Đăng ký các endpoints bóc tách âm thanh, tái tạo phiên âm, quản lý bài hát, xác thực và admin
 app.MapTranscribeEndpoints();
 app.MapPhonicsEndpoints();
