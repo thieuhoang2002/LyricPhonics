@@ -47,6 +47,7 @@ public class GeminiTranscriptionService : ITranscriptionService
         Stream audioStream,
         string mimeType,
         string fileName,
+        string targetLanguage = "vi",
         CancellationToken cancellationToken = default)
     {
         if (audioStream == null || audioStream.Length == 0)
@@ -67,8 +68,8 @@ public class GeminiTranscriptionService : ITranscriptionService
             );
         }
 
-        _logger.LogInformation("Bắt đầu xử lý âm thanh: {FileName} ({MimeType}, {Size} bytes)",
-            fileName, mimeType, audioStream.Length);
+        _logger.LogInformation("Bắt đầu xử lý âm thanh: {FileName} ({MimeType}, {Size} bytes, targetLang: {Lang})",
+            fileName, mimeType, audioStream.Length, targetLanguage);
 
         // 1. Chuyển đổi dữ liệu âm thanh Stream sang Base64
         string base64Data;
@@ -86,14 +87,14 @@ public class GeminiTranscriptionService : ITranscriptionService
                     Parts: new List<GeminiPart>
                     {
                         new(InlineData: new GeminiInlineData(mimeType, base64Data)),
-                        new(Text: GeminiPrompts.UserInstruction)
+                        new(Text: GeminiPrompts.BuildUserInstruction(targetLanguage))
                     }
                 )
             },
             SystemInstruction: new GeminiSystemInstruction(
                 Parts: new List<GeminiTextPart>
                 {
-                    new(GeminiPrompts.SystemPrompt)
+                    new(GeminiPrompts.BuildSystemPrompt(targetLanguage))
                 }
             ),
             GenerationConfig: new GeminiGenerationConfig(

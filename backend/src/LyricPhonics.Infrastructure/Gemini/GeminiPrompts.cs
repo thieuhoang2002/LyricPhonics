@@ -1,44 +1,74 @@
 namespace LyricPhonics.Infrastructure.Gemini;
 
 /// <summary>
-/// Chứa các mẫu System Prompt và User Instruction cho Gemini Multimodal Audio Model.
+/// Chứa các hàm sinh Prompt động cho Gemini Multimodal Audio Model hỗ trợ đa quốc gia và đa ngôn ngữ đích.
 /// 
-/// 💡 Thiết kế kỹ thuật (Prompt Engineering & Data Integrity):
-/// - Prompt được thiết kế chuyên biệt để yêu cầu Gemini nghe kỹ nhịp phách của ca sĩ
-///   và chuyển tự sang phiên âm tiếng Việt bồi có thanh điệu chuẩn khẩu hình hát cover.
-/// - Ép kiểu JSON nghiêm ngặt để đảm bảo máy chủ .NET deserialization luôn thành công 100%.
+/// 💡 Thiết kế kỹ thuật (Global Multi-Target Architecture):
+/// - Tự động điều chỉnh cấu trúc phiên âm bồi (Sing-along phonetics) theo bảng chữ cái và khẩu hình
+///   của ngôn ngữ mà người dùng muốn hát (Tiếng Việt, Tiếng Anh, Tiếng Nhật, Tiếng Hàn, Tiếng Tây Ban Nha...).
 /// </summary>
 public static class GeminiPrompts
 {
-    public const string SystemPrompt = @"Bạn là Chuyên gia Ngôn ngữ Âm nhạc và Nhà sản xuất Âm nhạc chuyên nghiệp.
-Nhiệm vụ của bạn là lắng nghe bài hát được cung cấp trong tệp âm thanh/video và thực hiện bóc tách lời bài hát song ngữ chính xác theo nhịp điệu (phách nhạc) để người Việt Nam có thể nhìn vào và hát cover ngay lập tức.
-
-YÊU CẦU BẮT BUỘC:
-1. Xác định ngôn ngữ gốc (ví dụ: 'Chinese', 'Korean', 'Japanese', 'English', 'Thai').
-2. Tách câu hát theo đúng nhịp ngắt nghỉ hơi của ca sĩ (phách nhạc), gán startTime và endTime chính xác tính bằng giây (số thực, ví dụ 12.45).
-3. Mỗi câu hát BẮT BUỘC bao gồm 4 tầng:
-   - originalText: Lời bài hát bằng chữ viết gốc (chữ Hán, Hangul, Kana, English...).
-   - standardPhonetic: Phiên âm chuẩn quốc tế (Pinyin kèm thanh điệu cho tiếng Trung, Romaji tiếng Nhật, Romaja tiếng Hàn, IPA tiếng Anh).
-   - phoneticText: Phiên âm tiếng Việt bồi CHUẨN KHẨU HÌNH và THANH ĐIỆU người Việt, ngắt đúng số âm tiết để hát cover theo điệu nhạc tự nhiên nhất (Ví dụ tiếng Trung: 'Thú yú liếu míng uế i oảng xí', 'Ủa ai nỉ').
-   - translationText: Nghĩa tiếng Việt vắn tắt, giàu chất thơ và cảm xúc âm nhạc.
-4. Đầu ra BẮT BUỘC tuân thủ cấu trúc JSON sau:
-{
-  ""metadata"": {
-    ""title"": ""Tên bài hát"",
-    ""artist"": ""Tên ca sĩ"",
-    ""detectedLanguage"": ""Ngôn ngữ bài hát""
-  },
-  ""lines"": [
+    private static readonly Dictionary<string, string> LanguageNames = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["vi"] = "Tiếng Việt (Vietnamese)",
+        ["en"] = "English",
+        ["ja"] = "日本語 (Japanese)",
+        ["ko"] = "한국어 (Korean)",
+        ["es"] = "Español (Spanish)",
+        ["zh"] = "中文 (Chinese)",
+        ["fr"] = "Français (French)",
+        ["de"] = "Deutsch (German)",
+    };
+
+    public static string BuildSystemPrompt(string targetLanguage = "vi")
+    {
+        string targetName = LanguageNames.TryGetValue(targetLanguage, out var name) ? name : targetLanguage;
+
+        return $@"You are a World-Class Multilingual Music Producer & Vocal Linguistic Expert.
+Your mission is to transcribe the provided audio/video track into a 4-tier karaoke lyric structure tailored specifically for native speakers of '{targetName}' to sing along and cover songs from other languages effortlessly.
+
+MANDATORY INSTRUCTIONS:
+1. Identify the original song language (e.g., 'Chinese', 'Korean', 'Japanese', 'English', 'Spanish', etc.).
+2. Segment the lyrics accurately following singer's breathing pauses and musical beats. Assign precise floating-point timestamps (startTime and endTime in seconds).
+3. Every lyric line MUST contain exactly 4 layers:
+   - originalText: The lyrics in native original script (e.g., Chinese Hanzi, Japanese Kanji/Kana, Korean Hangul, English...).
+   - standardPhonetic: Official international phonetic system (Pinyin with tone marks for Chinese, Romaji for Japanese, Revised Romanization for Korean, IPA for English).
+   - phoneticText: Sing-along cover phonetics adapted to the script and phonology of '{targetName}'. For example:
+     * If target is Vietnamese ('vi'): Write Vietnamese rhythmic phonetic transcription matching singer's mouth shape (e.g., 'Ủa ai nỉ', 'Thú yú liếu míng uế i oảng xí').
+     * If target is English ('en'): Write natural English-friendly sing-along syllables (e.g., 'Woh eye nee', 'Too yoo lee-oh meeng...').
+     * If target is Japanese ('ja'): Write Katakana sing-along ruby (e.g., 'ウォー・アイ・ニー').
+     * If target is Korean ('ko'): Write Hangul sing-along syllables (e.g., '워 아이 니').
+     * For other languages: Write intuitive phonetics using that language's native alphabet.
+   - translationText: Poetic, emotionally resonant meaning translated into '{targetName}'.
+
+4. Output MUST strictly follow this JSON schema:
+{{
+  ""metadata"": {{
+    ""title"": ""Song Title"",
+    ""artist"": ""Artist Name"",
+    ""detectedLanguage"": ""Original song language""
+  }},
+  ""lines"": [
+    {{
       ""startTime"": 0.0,
       ""endTime"": 3.5,
-      ""originalText"": ""Lời gốc"",
-      ""standardPhonetic"": ""Phiên âm chuẩn quốc tế"",
-      ""phoneticText"": ""Lời bồi tiếng Việt chuẩn nhịp"",
-      ""translationText"": ""Dịch nghĩa""
-    }
+      ""originalText"": ""Original text"",
+      ""standardPhonetic"": ""International standard phonetic"",
+      ""phoneticText"": ""Sing-along phonetics in {targetName}"",
+      ""translationText"": ""Translation in {targetName}""
+    }}
   ]
-}";
+}}";
+    }
 
-    public const string UserInstruction = "Hãy lắng nghe kỹ toàn bộ file âm thanh/video này và bóc tách lời bài hát 4 tầng (lời gốc, phiên âm chuẩn quốc tế, phiên âm bồi tiếng Việt, dịch nghĩa) kèm mốc thời gian [startTime, endTime] theo đúng cấu trúc JSON đã hướng dẫn.";
+    public static string BuildUserInstruction(string targetLanguage = "vi")
+    {
+        string targetName = LanguageNames.TryGetValue(targetLanguage, out var name) ? name : targetLanguage;
+        return $"Please listen to the entire audio/video track and transcribe 4-tier lyrics with timestamps optimized for '{targetName}' speakers to sing along, according to the JSON format.";
+    }
+
+    // Tương thích ngược với code cũ nếu có
+    public static string SystemPrompt => BuildSystemPrompt("vi");
+    public static string UserInstruction => BuildUserInstruction("vi");
 }

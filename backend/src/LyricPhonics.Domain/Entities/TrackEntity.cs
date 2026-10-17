@@ -14,6 +14,7 @@ public class TrackEntity
     public string Artist { get; set; } = "Unknown Artist";
     public string FileName { get; set; } = string.Empty;
     public string DetectedLanguage { get; set; } = "auto";
+    public string TargetLanguage { get; set; } = "vi";
     public double Duration { get; set; }
     
     /// <summary>

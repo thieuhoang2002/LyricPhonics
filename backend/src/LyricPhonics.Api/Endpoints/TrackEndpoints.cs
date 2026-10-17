@@ -40,6 +40,7 @@ public static class TrackEndpoints
                 artist = t.Artist,
                 fileName = t.FileName,
                 detectedLanguage = t.DetectedLanguage,
+                targetLanguage = t.TargetLanguage,
                 duration = t.Duration,
                 createdAt = t.CreatedAt,
                 updatedAt = t.UpdatedAt

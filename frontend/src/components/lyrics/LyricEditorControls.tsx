@@ -5,9 +5,13 @@ import type { LyricLine } from '@/types/lyrics';
 import { formatDisplayTime } from '@/lib/utils/time';
 import { X, Check, Clock, Plus, Minus, Pin, Sparkles, Loader2 } from 'lucide-react';
 
+import type { SupportedLanguage } from '@/lib/i18n/translations';
+import { translations } from '@/lib/i18n/translations';
+
 export interface LyricEditorControlsProps {
   readonly line: LyricLine | null;
   readonly currentPlaybackTime: number;
+  readonly targetLanguage?: SupportedLanguage;
   readonly onSave: (updatedLine: LyricLine) => void;
   readonly onClose: () => void;
 }
@@ -15,10 +19,13 @@ export interface LyricEditorControlsProps {
 export function LyricEditorControls({
   line,
   currentPlaybackTime,
+  targetLanguage = 'vi',
   onSave,
   onClose,
 }: LyricEditorControlsProps): React.JSX.Element | null {
   if (!line) return null;
+
+  const t = translations[targetLanguage] || translations.vi;
 
   const [originalText, setOriginalText] = useState<string>(line.originalText);
   const [standardPhonetic, setStandardPhonetic] = useState<string>(line.standardPhonetic || '');
@@ -44,7 +51,7 @@ export function LyricEditorControls({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ originalText: text }),
+        body: JSON.stringify({ originalText: text, language: targetLanguage }),
       });
 
       const res = await response.json();

@@ -39,7 +39,7 @@ public class PhonicsRegenerationService : IPhonicsRegenerationService
 
     public async Task<RegeneratedPhonicsResult> RegenerateLinePhonicsAsync(
         string originalText,
-        string? language = null,
+        string? language = "vi",
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(originalText))
@@ -47,6 +47,7 @@ public class PhonicsRegenerationService : IPhonicsRegenerationService
             return new RegeneratedPhonicsResult(string.Empty, string.Empty, string.Empty, string.Empty);
         }
 
+        string targetLang = string.IsNullOrWhiteSpace(language) ? "vi" : language;
         string groqApiKey = _configuration["Groq:ApiKey"] 
             ?? Environment.GetEnvironmentVariable("GROQ_API_KEY") 
             ?? string.Empty;
@@ -58,8 +59,8 @@ public class PhonicsRegenerationService : IPhonicsRegenerationService
         {
             try
             {
-                _logger.LogInformation("Đang gọi Groq AI ({Model}) để tái tạo phiên âm cho: '{Text}'", groqModel, originalText);
-                return await CallGroqAsync(originalText, groqModel, groqApiKey, cancellationToken);
+                _logger.LogInformation("Đang gọi Groq AI ({Model}) để tái tạo phiên âm cho: '{Text}' (target: {Lang})", groqModel, originalText, targetLang);
+                return await CallGroqAsync(originalText, targetLang, groqModel, groqApiKey, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -68,16 +69,39 @@ public class PhonicsRegenerationService : IPhonicsRegenerationService
         }
 
         // 2. Fallback sang Google Gemini
-        _logger.LogInformation("Đang gọi Gemini AI để tái tạo phiên âm cho: '{Text}'", originalText);
-        return await CallGeminiFallbackAsync(originalText, cancellationToken);
+        _logger.LogInformation("Đang gọi Gemini AI để tái tạo phiên âm cho: '{Text}' (target: {Lang})", originalText, targetLang);
+        return await CallGeminiFallbackAsync(originalText, targetLang, cancellationToken);
     }
 
     private async Task<RegeneratedPhonicsResult> CallGroqAsync(
         string originalText,
+        string targetLang,
         string model,
         string apiKey,
         CancellationToken cancellationToken)
     {
+        string systemPrompt = targetLang.ToLowerInvariant() switch
+        {
+            "en" => @"You are a World-Class Multilingual Music & Vocal Linguistics Expert.
+Task: Receive a song lyric line and return a 4-tier JSON structure tailored for English speakers to sing along:
+1. originalText: Keep original lyrics as-is.
+2. standardPhonetic: Official international phonetic system (Pinyin/Romaji/IPA).
+3. phoneticText: Intuitive English-friendly phonetic sing-along syllables matching mouth shape and rhythm (e.g. for Chinese '我爱你' -> 'Woh eye nee').
+4. translationText: English meaning translated poetically.",
+            "ja" => @"あなたは多言語音楽プロデューサーです。
+タスク: 歌詞を受け取り、日本人がカバーして歌えるようにカタカナルビを含む4層のJSONを生成してください:
+1. originalText: 原文歌詞。
+2. standardPhonetic: 国際標準発音表記 (Pinyin/IPAなど)。
+3. phoneticText: 日本語話者が歌いやすいカタカナルビ (例: ウォー・アイ・ニー)。
+4. translationText: 日本語の自然な訳。",
+            _ => @"Bạn là Chuyên gia Ngôn ngữ Âm nhạc.
+Nhiệm vụ: Nhận một câu lời bài hát gốc và trả về cấu trúc JSON 4 tầng để người hát cover:
+1. originalText: Giữ nguyên lời bài hát gốc.
+2. standardPhonetic: Phiên âm chuẩn quốc tế (Pinyin có dấu cho tiếng Trung, Romaji cho tiếng Nhật, Romaja cho tiếng Hàn, IPA cho tiếng Anh).
+3. phoneticText: Phiên âm tiếng Việt bồi CHUẨN KHẨU HÌNH và THANH ĐIỆU để người Việt hát theo nhạc mượt mà.
+4. translationText: Bản dịch nghĩa tiếng Việt giàu cảm xúc âm nhạc."
+        };
+
         var requestPayload = new
         {
             model = model,
@@ -86,14 +110,9 @@ public class PhonicsRegenerationService : IPhonicsRegenerationService
                 new
                 {
                     role = "system",
-                    content = @"Bạn là Chuyên gia Ngôn ngữ Âm nhạc.
-Nhiệm vụ: Nhận một câu lời bài hát gốc và trả về cấu trúc JSON 4 tầng để người Việt hát cover:
-1. originalText: Giữ nguyên lời bài hát gốc.
-2. standardPhonetic: Phiên âm chuẩn quốc tế (Pinyin có dấu cho tiếng Trung, Romaji cho tiếng Nhật, Romaja cho tiếng Hàn, IPA cho tiếng Anh).
-3. phoneticText: Phiên âm tiếng Việt bồi CHUẨN KHẨU HÌNH và THANH ĐIỆU để người Việt hát theo nhạc mượt mà.
-4. translationText: Bản dịch nghĩa tiếng Việt giàu cảm xúc âm nhạc.
+                    content = systemPrompt + @"
 
-Đầu ra BẮT BUỘC chỉ là JSON hợp lệ theo định dạng:
+Return ONLY valid JSON:
 {
   ""originalText"": ""..."",
   ""standardPhonetic"": ""..."",
@@ -104,7 +123,7 @@ Nhiệm vụ: Nhận một câu lời bài hát gốc và trả về cấu trúc
                 new
                 {
                     role = "user",
-                    content = $"Hãy tạo phiên âm chuẩn, phiên âm bồi tiếng Việt và dịch nghĩa cho câu hát sau:\n{originalText}"
+                    content = $"Generate 4-tier phonetics and translation for:\n{originalText}"
                 }
             },
             temperature = 0.2,
@@ -134,6 +153,7 @@ Nhiệm vụ: Nhận một câu lời bài hát gốc và trả về cấu trúc
 
     private async Task<RegeneratedPhonicsResult> CallGeminiFallbackAsync(
         string originalText,
+        string targetLang,
         CancellationToken cancellationToken)
     {
         string apiKey = _geminiOptions.ApiKey;
@@ -150,20 +170,21 @@ Nhiệm vụ: Nhận một câu lời bài hát gốc và trả về cấu trúc
                 new(
                     Parts: new List<GeminiPart>
                     {
-                        new(Text: $"Hãy tạo phiên âm chuẩn quốc tế (standardPhonetic), phiên âm bồi tiếng Việt chuẩn khẩu hình (phoneticText), và dịch nghĩa tiếng Việt (translationText) cho câu hát sau: '{originalText}'. Trả về JSON.")
+                        new(Text: $"Generate 4-tier phonetics and translation for: '{originalText}'. Target audience language is '{targetLang}'. Return valid JSON.")
                     }
                 )
             },
             SystemInstruction: new GeminiSystemInstruction(
                 Parts: new List<GeminiTextPart>
                 {
-                    new(@"Bạn là Chuyên gia Ngôn ngữ Âm nhạc. Hãy trả về JSON duy nhất với 4 trường:
-{
+                    new($@"You are a Music & Vocal Linguistics Expert.
+Generate 4-tier lyric structure optimized for '{targetLang}' speakers to sing along:
+{{
   ""originalText"": ""..."",
   ""standardPhonetic"": ""..."",
   ""phoneticText"": ""..."",
   ""translationText"": ""...""
-}")
+}}")
                 }
             ),
             GenerationConfig: new GeminiGenerationConfig(

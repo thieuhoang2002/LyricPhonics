@@ -1,4 +1,4 @@
-﻿using LyricPhonics.Domain.Models;
+using LyricPhonics.Domain.Models;
 
 namespace LyricPhonics.Application.Interfaces;
 
@@ -18,12 +18,14 @@ public interface ITranscriptionService
     /// <param name="audioStream">Luồng dữ liệu file âm thanh (dùng Stream thay vì byte[] để tiết kiệm RAM).</param>
     /// <param name="mimeType">Định dạng file (audio/mpeg, audio/wav, video/mp4...).</param>
     /// <param name="fileName">Tên file tải lên để trích xuất tên bài hát mặc định.</param>
+    /// <param name="targetLanguage">Ngôn ngữ của người dùng/người hát cover (ví dụ: 'vi', 'en', 'ja', 'ko', 'es').</param>
     /// <param name="cancellationToken">Token hỗ trợ hủy tác vụ khi người dùng ngắt kết nối HTTP.</param>
     /// <returns>Đối tượng TranscriptionResult chứa danh sách câu hát và metadata.</returns>
     Task<TranscriptionResult> TranscribeAudioAsync(
         Stream audioStream,
         string mimeType,
         string fileName,
+        string targetLanguage = "vi",
         CancellationToken cancellationToken = default
     );
 }

@@ -113,10 +113,15 @@ public static class TranscribeEndpoints
             // giúp tiết kiệm bộ nhớ máy chủ tối đa khi có hàng trăm request đồng thời.
             using var stream = file.OpenReadStream();
 
+            string targetLang = form["targetLang"].FirstOrDefault() 
+                ?? request.Query["targetLang"].FirstOrDefault() 
+                ?? "vi";
+
             var result = await transcriptionService.TranscribeAudioAsync(
                 stream,
                 contentType,
                 file.FileName,
+                targetLang,
                 cancellationToken
             );
 
@@ -129,10 +134,11 @@ public static class TranscribeEndpoints
                 {
                     var saved = await trackRepository.SaveTrackAsync(new LyricPhonics.Domain.Entities.TrackEntity
                     {
-                        Title = result.Metadata.Title,
-                        Artist = result.Metadata.Artist,
+                        Title = result.Metadata.Title ?? Path.GetFileNameWithoutExtension(file.FileName),
+                        Artist = result.Metadata.Artist ?? "Unknown Artist",
                         FileName = file.FileName,
-                        DetectedLanguage = result.Metadata.DetectedLanguage,
+                        DetectedLanguage = result.Metadata.DetectedLanguage ?? "auto",
+                        TargetLanguage = targetLang,
                         Duration = result.Lines.Count > 0 ? result.Lines.Max(l => l.EndTime) : 0,
                         LinesJson = System.Text.Json.JsonSerializer.Serialize(result.Lines)
                     }, cancellationToken);

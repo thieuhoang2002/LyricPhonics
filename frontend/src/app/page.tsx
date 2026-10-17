@@ -10,6 +10,11 @@ import { AudioPlayerBar } from '@/components/player/AudioPlayerBar';
 import { LyricEditorControls } from '@/components/lyrics/LyricEditorControls';
 import { ExportToolbar } from '@/components/export/ExportToolbar';
 import { SavedProjectsModal } from '@/components/storage/SavedProjectsModal';
+import { LanguageSelector } from '@/components/common/LanguageSelector';
+import {
+  translations,
+  type SupportedLanguage,
+} from '@/lib/i18n/translations';
 import {
   saveProject,
   getLatestProject,
@@ -35,6 +40,9 @@ export default function Home(): React.JSX.Element {
   const [editingLine, setEditingLine] = useState<LyricLine | null>(null);
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
 
+  // Global Target Language state
+  const [targetLanguage, setTargetLanguage] = useState<SupportedLanguage>('vi');
+
   // Storage states
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [isProjectsModalOpen, setIsProjectsModalOpen] = useState<boolean>(false);
@@ -43,8 +51,34 @@ export default function Home(): React.JSX.Element {
   // Giữ tham chiếu audio blob hiện tại để lưu khi edit lời
   const currentBlobRef = useRef<Blob | null>(null);
 
+  const t = translations[targetLanguage] || translations.vi;
+
   const player = useAudioPlayer(audioUrl);
   const { activeLineIndex } = useLyricSync(transcription?.lines || [], player.currentTime);
+
+  // Phát hiện ngôn ngữ trình duyệt hoặc lấy từ localStorage lúc khởi động
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedLang = window.localStorage.getItem('lyricphonics_target_lang') as SupportedLanguage | null;
+      if (savedLang && translations[savedLang]) {
+        setTargetLanguage(savedLang);
+      } else {
+        const browserLang = navigator.language.toLowerCase();
+        if (browserLang.startsWith('ja')) setTargetLanguage('ja');
+        else if (browserLang.startsWith('ko')) setTargetLanguage('ko');
+        else if (browserLang.startsWith('es')) setTargetLanguage('es');
+        else if (browserLang.startsWith('en')) setTargetLanguage('en');
+        else setTargetLanguage('vi');
+      }
+    }
+  }, []);
+
+  const handleLanguageChange = (lang: SupportedLanguage) => {
+    setTargetLanguage(lang);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('lyricphonics_target_lang', lang);
+    }
+  };
 
   // Tự động khôi phục bài hát & lời gần nhất từ IndexedDB khi mở trang web
   useEffect(() => {
@@ -63,7 +97,7 @@ export default function Home(): React.JSX.Element {
           setAudioUrl(url);
         }
 
-        setSaveStatus('Đã khôi phục từ bộ nhớ');
+        setSaveStatus(targetLanguage === 'vi' ? 'Đã khôi phục từ bộ nhớ' : 'Restored from offline storage');
         setTimeout(() => setSaveStatus(null), 3000);
       } catch (err) {
         console.warn('Lỗi khi khôi phục dự án gần nhất:', err);
@@ -74,7 +108,7 @@ export default function Home(): React.JSX.Element {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [targetLanguage]);
 
   // Xử lý khi người dùng tải file lên và gọi API phân tích AI
   const handleFileSelected = useCallback(
@@ -88,6 +122,7 @@ export default function Home(): React.JSX.Element {
       try {
         const formData = new FormData();
         formData.append('file', selectedFile);
+        formData.append('targetLang', targetLanguage);
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/transcribe`
@@ -128,7 +163,7 @@ export default function Home(): React.JSX.Element {
           updatedAt: Date.now(),
         });
 
-        setSaveStatus('Đã tự động lưu vào máy');
+        setSaveStatus(targetLanguage === 'vi' ? 'Đã tự động lưu vào máy' : 'Auto-saved locally');
         setTimeout(() => setSaveStatus(null), 3500);
       } catch (err) {
         console.error('Transcription error:', err);
@@ -141,7 +176,7 @@ export default function Home(): React.JSX.Element {
         setIsProcessing(false);
       }
     },
-    []
+    [targetLanguage]
   );
 
   // Mở bài hát mẫu demo
@@ -250,10 +285,10 @@ export default function Home(): React.JSX.Element {
         setAudioUrl(url);
       }
 
-      setSaveStatus('Đã mở bài hát từ thư viện');
+      setSaveStatus(targetLanguage === 'vi' ? 'Đã mở bài hát từ thư viện' : 'Loaded from library');
       setTimeout(() => setSaveStatus(null), 3000);
     },
-    [player]
+    [player, targetLanguage]
   );
 
   // Chọn mở một bài hát từ Cloud Database (Neon PostgreSQL)
@@ -269,10 +304,10 @@ export default function Home(): React.JSX.Element {
         lines: cloudTrack.lines,
       });
 
-      setSaveStatus('Đã tải bài hát từ Neon PostgreSQL');
+      setSaveStatus(targetLanguage === 'vi' ? 'Đã tải bài hát từ Neon PostgreSQL' : 'Loaded from Neon PostgreSQL');
       setTimeout(() => setSaveStatus(null), 3000);
     },
-    [player]
+    [player, targetLanguage]
   );
 
   // Reset sang chế độ tải bài mới (không xóa dữ liệu đã lưu trong IndexedDB)
@@ -301,25 +336,31 @@ export default function Home(): React.JSX.Element {
             <div className="flex items-center gap-2">
               <span className="font-bold tracking-tight text-white text-base">LyricPhonics</span>
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-semibold">
-                AI Phonics Cover
+                Global Phonics Cover
               </span>
             </div>
             <p className="text-[11px] text-slate-400 hidden sm:block">
-              Phiên âm lời bài hát quốc tế sang tiếng Việt chuẩn nhịp điệu
+              {t.appSubtitle}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Bộ chọn ngôn ngữ người hát (Language Selector) */}
+          <LanguageSelector
+            currentLanguage={targetLanguage}
+            onLanguageChange={handleLanguageChange}
+          />
+
           {/* Nút mở thư viện bài hát đã lưu */}
           <button
             type="button"
             onClick={() => setIsProjectsModalOpen(true)}
-            className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 border border-slate-800 text-slate-300 hover:text-cyan-300 hover:border-slate-700 flex items-center gap-1.5 transition-colors"
-            title="Xem danh sách các bài hát đã lưu trong máy"
+            className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 border border-slate-800 text-slate-300 hover:text-cyan-300 hover:border-slate-700 flex items-center gap-1.5 transition-colors shadow-sm"
+            title={t.libraryButton}
           >
             <FolderHeart className="w-3.5 h-3.5 text-rose-400" />
-            <span className="hidden sm:inline">Thư viện bài hát</span>
+            <span className="hidden sm:inline">{t.libraryButton}</span>
           </button>
 
           {hasLyrics && (
@@ -332,20 +373,20 @@ export default function Home(): React.JSX.Element {
                     ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300'
                     : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
                 }`}
-                title="Tự động cuộn theo câu đang hát"
+                title="Auto-scroll"
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Auto-scroll</span>
+                <span className="hidden sm:inline">{t.autoScroll}</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleResetSession}
                 className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-1.5 transition-colors"
-                title="Tải bài hát khác"
+                title={t.changeSong}
               >
                 <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-                <span>Tải bài khác</span>
+                <span>{t.changeSong}</span>
               </button>
             </>
           )}
@@ -357,7 +398,7 @@ export default function Home(): React.JSX.Element {
               className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 flex items-center gap-1.5 transition-colors"
             >
               <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Thử bài mẫu</span>
+              <span>{t.sampleButton}</span>
             </button>
           )}
         </div>
@@ -370,19 +411,18 @@ export default function Home(): React.JSX.Element {
           <div className="flex flex-col items-center justify-center my-auto py-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 mb-6 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-xs font-medium">
               <Sparkles className="w-3.5 h-3.5" />
-              Gemini Multimodal Audio 3.5 Flash Engine
+              {t.heroBadge}
             </div>
 
             <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-white mb-4 text-center max-w-2xl">
-              Hát mọi bài hát quốc tế với{' '}
+              {t.heroTitlePrefix}{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500">
-                phiên âm tiếng Việt chuẩn nhịp
+                {t.heroTitleHighlight}
               </span>
             </h1>
 
             <p className="text-sm md:text-base text-slate-400 text-center max-w-xl mb-8 leading-relaxed">
-              Tải lên bài hát tiếng Trung, Hàn, Nhật, Anh, Thái... AI tự động ngắt theo nhịp thở ca sĩ,
-              phiên âm bồi chuẩn khẩu hình để bạn hát cover tự tin ngay lần đầu tiên.
+              {t.heroDesc}
             </p>
 
             <AudioDropzone
@@ -393,7 +433,7 @@ export default function Home(): React.JSX.Element {
 
             <div className="mt-8 flex items-center gap-2 text-xs text-slate-500 bg-slate-900/40 px-4 py-2 rounded-xl border border-slate-800/60">
               <Info className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Chưa có file? Bấm nút <strong>&quot;Thử bài mẫu&quot;</strong> hoặc mở <strong>&quot;Thư viện bài hát&quot;</strong> để nghe lại bài cũ.</span>
+              <span>{t.emptyNotice}</span>
             </div>
           </div>
         ) : (
@@ -405,7 +445,7 @@ export default function Home(): React.JSX.Element {
                 <div className="flex items-center gap-2">
                   <Music className="w-4 h-4 text-cyan-400" />
                   <h2 className="text-lg font-bold text-white">
-                    {transcription?.metadata.title || file?.name || 'Bài hát đang phát'}
+                    {transcription?.metadata.title || file?.name || 'Now Playing'}
                   </h2>
                   {saveStatus && (
                     <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
@@ -415,14 +455,14 @@ export default function Home(): React.JSX.Element {
                   )}
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {transcription?.lines.length} câu hát • Nhấp câu bất kỳ để tua nhạc • Nhấp đúp để sửa lời & căn chỉnh thời gian
+                  {transcription?.lines.length} lines • Click any line to seek • Double click to edit lyrics & timing
                 </p>
               </div>
 
               <div className="text-xs text-slate-500 font-mono">
                 {transcription?.metadata.detectedLanguage && (
                   <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                    Ngôn ngữ: {transcription.metadata.detectedLanguage.toUpperCase()}
+                    Language: {transcription.metadata.detectedLanguage.toUpperCase()}
                   </span>
                 )}
               </div>
@@ -453,7 +493,7 @@ export default function Home(): React.JSX.Element {
       {audioUrl && (
         <AudioPlayerBar
           player={player}
-          songTitle={transcription?.metadata.title || file?.name || 'Đang phát'}
+          songTitle={transcription?.metadata.title || file?.name || 'Playing'}
         />
       )}
 
@@ -462,6 +502,7 @@ export default function Home(): React.JSX.Element {
         <LyricEditorControls
           line={editingLine}
           currentPlaybackTime={player.currentTime}
+          targetLanguage={targetLanguage}
           onSave={handleUpdateLine}
           onClose={() => setEditingLine(null)}
         />
