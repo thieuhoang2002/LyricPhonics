@@ -17,6 +17,8 @@ export interface LyricLine {
   readonly endTime: number;
   /** Original song lyrics in native language/script (Chinese, Japanese, Korean, English, etc.) */
   readonly originalText: string;
+  /** International standard phonetic transcription (Pinyin, Romaji, Romaja, IPA) */
+  readonly standardPhonetic?: string;
   /** Rhythm-matched Vietnamese phonetic transcription (phiên âm bồi chuẩn nhịp để hát cover) */
   readonly phoneticText: string;
   /** Concise Vietnamese meaning/translation of the lyric line */

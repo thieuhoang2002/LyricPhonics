@@ -1,8 +1,11 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
 using LyricPhonics.Application.Interfaces;
 using LyricPhonics.Infrastructure.Gemini;
+using LyricPhonics.Infrastructure.Persistence;
+using LyricPhonics.Infrastructure.Services;
 
 namespace LyricPhonics.Infrastructure;
 
@@ -48,6 +51,60 @@ public static class DependencyInjection
             options.Retry.UseJitter = true; // Thêm độ lệch ngẫu nhiên để tránh hiện tượng dồn cục (Thundering Herd)
         });
 
+        // 3. Cấu hình PostgreSQL (Neon Serverless DB) với EF Core
+        string? connectionString = configuration.GetConnectionString("NeonPostgres")
+            ?? Environment.GetEnvironmentVariable("DATABASE_URL");
+
+        if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            string npgsqlConnectionString = NormalizePostgreSqlConnectionString(connectionString);
+
+            services.AddDbContext<LyricPhonicsDbContext>(options =>
+            {
+                options.UseNpgsql(npgsqlConnectionString, npgsqlOptions =>
+                {
+                    npgsqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 3,
+                        maxRetryDelay: TimeSpan.FromSeconds(5),
+                        errorCodesToAdd: null
+                    );
+                });
+            });
+
+            services.AddScoped<ITrackRepository, TrackRepository>();
+        }
+
+        // 4. Đăng ký PhonicsRegenerationService (Groq AI & Gemini Fallback)
+        services.AddHttpClient<IPhonicsRegenerationService, PhonicsRegenerationService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
         return services;
+    }
+
+    private static string NormalizePostgreSqlConnectionString(string connectionString)
+    {
+        if (connectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+            connectionString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var uri = new Uri(connectionString);
+                var userInfo = uri.UserInfo.Split(':');
+                var username = Uri.UnescapeDataString(userInfo[0]);
+                var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty;
+                var database = uri.AbsolutePath.TrimStart('/');
+                var port = uri.Port > 0 ? uri.Port : 5432;
+
+                return $"Host={uri.Host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true;";
+            }
+            catch
+            {
+                return connectionString;
+            }
+        }
+
+        return connectionString;
     }
 }

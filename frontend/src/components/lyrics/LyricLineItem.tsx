@@ -95,7 +95,18 @@ export function LyricLineItem({
         )}
       </div>
 
-      {/* Layer 2: Vietnamese Phonetic Cover Pronunciation */}
+      {/* Layer 2: International Standard Phonetic (Pinyin, Romaji, IPA) */}
+      {line.standardPhonetic && (
+        <div
+          className={`text-xs md:text-sm font-mono tracking-wider mb-1 transition-colors ${
+            isActive ? 'text-amber-300/90 font-medium' : 'text-amber-400/60'
+          }`}
+        >
+          {line.standardPhonetic}
+        </div>
+      )}
+
+      {/* Layer 3: Vietnamese Phonetic Cover Pronunciation */}
       <div
         className={`text-base md:text-lg font-semibold tracking-wide mb-1.5 transition-colors ${
           isActive

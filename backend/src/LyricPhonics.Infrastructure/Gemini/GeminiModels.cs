@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
 namespace LyricPhonics.Infrastructure.Gemini;
 
@@ -79,5 +79,6 @@ public record GeminiOutputLine(
     [property: JsonPropertyName("endTime")] double EndTime,
     [property: JsonPropertyName("originalText")] string OriginalText,
     [property: JsonPropertyName("phoneticText")] string PhoneticText,
-    [property: JsonPropertyName("translationText")] string? TranslationText
+    [property: JsonPropertyName("translationText")] string? TranslationText,
+    [property: JsonPropertyName("standardPhonetic")] string? StandardPhonetic = null
 );

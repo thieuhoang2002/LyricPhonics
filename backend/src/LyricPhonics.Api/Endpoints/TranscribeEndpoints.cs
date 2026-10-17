@@ -42,6 +42,7 @@ public static class TranscribeEndpoints
         group.MapPost("/", async (
             HttpRequest request,
             ITranscriptionService transcriptionService,
+            IServiceProvider serviceProvider,
             CancellationToken cancellationToken) =>
         {
             if (!request.HasFormContentType)
@@ -119,10 +120,37 @@ public static class TranscribeEndpoints
                 cancellationToken
             );
 
-            // 5. Trả về kết quả JSON theo định dạng chuẩn mà Frontend mong đợi
+            // 5. Tự động lưu trữ bài hát và lời 4 tầng vào PostgreSQL (Neon DB)
+            Guid? savedTrackId = null;
+            var trackRepository = serviceProvider.GetService<ITrackRepository>();
+            if (trackRepository != null)
+            {
+                try
+                {
+                    var saved = await trackRepository.SaveTrackAsync(new LyricPhonics.Domain.Entities.TrackEntity
+                    {
+                        Title = result.Metadata.Title,
+                        Artist = result.Metadata.Artist,
+                        FileName = file.FileName,
+                        DetectedLanguage = result.Metadata.DetectedLanguage,
+                        Duration = result.Lines.Count > 0 ? result.Lines.Max(l => l.EndTime) : 0,
+                        LinesJson = System.Text.Json.JsonSerializer.Serialize(result.Lines)
+                    }, cancellationToken);
+                    savedTrackId = saved.Id;
+                }
+                catch (Exception dbEx)
+                {
+                    // Lỗi database không làm gián đoạn việc trả về kết quả cho người dùng
+                    var logger = serviceProvider.GetService<ILoggerFactory>()?.CreateLogger("TranscribeEndpoints");
+                    logger?.LogWarning(dbEx, "Không thể tự động lưu bài hát vào cơ sở dữ liệu PostgreSQL.");
+                }
+            }
+
+            // 6. Trả về kết quả JSON theo định dạng chuẩn mà Frontend mong đợi
             return Results.Ok(new
             {
                 success = true,
+                trackId = savedTrackId,
                 metadata = result.Metadata,
                 lines = result.Lines
             });
@@ -131,7 +159,7 @@ public static class TranscribeEndpoints
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status500InternalServerError)
-        .WithSummary("Bóc tách âm thanh sang lời bài hát 3 tầng kèm mốc thời gian")
+        .WithSummary("Bóc tách âm thanh sang lời bài hát 4 tầng kèm mốc thời gian")
         .DisableAntiforgery(); // Tắt antiforgery cho API công khai phục vụ SPA Frontend
 
         return app;

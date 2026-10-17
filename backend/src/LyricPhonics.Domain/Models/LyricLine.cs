@@ -1,15 +1,11 @@
-﻿namespace LyricPhonics.Domain.Models;
+namespace LyricPhonics.Domain.Models;
 
 /// <summary>
-/// Đại diện cho một câu hát trong bài hát với cấu trúc 3 tầng:
+/// Đại diện cho một câu hát trong bài hát với cấu trúc 4 tầng:
 /// 1. Lời gốc (OriginalText): Tiếng Trung, Hàn, Nhật, Anh...
-/// 2. Phiên âm bồi tiếng Việt (PhoneticText): Chuẩn khẩu hình và thanh điệu để người Việt hát cover ngay.
-/// 3. Dịch nghĩa tiếng Việt (TranslationText): Bản dịch ngắn gọn giúp người hát hiểu cảm xúc.
-/// 
-/// 💡 Thiết kế kỹ thuật:
-/// - Sử dụng C# 'record' thay vì 'class' thông thường.
-/// - 'record' mang tính bất biến (Immutability), tự động sinh hàm so sánh theo giá trị (Value-based equality),
-///   hỗ trợ biểu thức 'with' để clone dữ liệu an toàn trong môi trường đa luồng (Thread-safe).
+/// 2. Phiên âm chuẩn quốc tế (StandardPhonetic): Pinyin, Romaji, Romaja, IPA.
+/// 3. Phiên âm bồi tiếng Việt (PhoneticText): Chuẩn khẩu hình và thanh điệu để người Việt hát cover ngay.
+/// 4. Dịch nghĩa tiếng Việt (TranslationText): Bản dịch ngắn gọn giúp người hát hiểu cảm xúc.
 /// </summary>
 public record LyricLine(
     string Id,
@@ -17,7 +13,8 @@ public record LyricLine(
     double EndTime,
     string OriginalText,
     string PhoneticText,
-    string? TranslationText = null
+    string? TranslationText = null,
+    string? StandardPhonetic = null
 )
 {
     /// <summary>

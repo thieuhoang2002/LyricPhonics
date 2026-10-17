@@ -158,6 +158,7 @@ export default function Home(): React.JSX.Element {
           startTime: 1.0,
           endTime: 4.5,
           originalText: '我爱你，中国，亲爱的母亲',
+          standardPhonetic: 'wǒ ài nǐ, zhōng guó, qīn ài de mǔ qīn',
           phoneticText: 'Ủa ai nỉ, trung của, chin ai tơ mủ chin',
           translationText: 'Tôi yêu bạn, đất nước thân yêu',
         },
@@ -166,6 +167,7 @@ export default function Home(): React.JSX.Element {
           startTime: 5.0,
           endTime: 8.5,
           originalText: '我要把美好的青春献给你',
+          standardPhonetic: 'wǒ yào bǎ měi hǎo de qīng chūn xiàn gěi nǐ',
           phoneticText: 'Ủa dao bả mẩy hảo tơ chinh thuân xiên cẩy nỉ',
           translationText: 'Tôi muốn dành trọn tuổi thanh xuân cho người',
         },
@@ -174,6 +176,7 @@ export default function Home(): React.JSX.Element {
           startTime: 9.0,
           endTime: 13.0,
           originalText: '我的母亲，我的祖国',
+          standardPhonetic: 'wǒ de mǔ qīn, wǒ de zǔ guó',
           phoneticText: 'Ủa tơ mủ chin, ủa tơ chủ của',
           translationText: 'Người mẹ yêu dấu, quê hương tôi',
         },
@@ -182,6 +185,7 @@ export default function Home(): React.JSX.Element {
           startTime: 14.0,
           endTime: 18.0,
           originalText: 'Saranghae neoreul bogo shipeo',
+          standardPhonetic: 'saranghae neoreul bogo sipeo',
           phoneticText: 'Sa-rang-hê no-rưn bô-gô si-pơ',
           translationText: 'Anh yêu em, anh rất nhớ em',
         },
@@ -190,6 +194,7 @@ export default function Home(): React.JSX.Element {
           startTime: 19.0,
           endTime: 23.5,
           originalText: 'Aishiteru to iitai kara',
+          standardPhonetic: 'aishiteru to iitai kara',
           phoneticText: 'Ai-xi-tê-rư tô ii-tai ca-ra',
           translationText: 'Bởi vì anh muốn nói lời yêu em',
         },
@@ -232,7 +237,7 @@ export default function Home(): React.JSX.Element {
     [currentProjectId, file]
   );
 
-  // Chọn mở một bài hát từ modal Thư viện bài hát đã lưu
+  // Chọn mở một bài hát từ modal Thư viện bài hát đã lưu (Offline)
   const handleSelectSavedProject = useCallback(
     (project: SavedProject): void => {
       player.reset();
@@ -246,6 +251,25 @@ export default function Home(): React.JSX.Element {
       }
 
       setSaveStatus('Đã mở bài hát từ thư viện');
+      setTimeout(() => setSaveStatus(null), 3000);
+    },
+    [player]
+  );
+
+  // Chọn mở một bài hát từ Cloud Database (Neon PostgreSQL)
+  const handleSelectCloudTrack = useCallback(
+    (cloudTrack: { metadata: any; lines: any[] }): void => {
+      player.reset();
+      setFile(null);
+      setAudioUrl(null);
+      currentBlobRef.current = null;
+      setCurrentProjectId(null);
+      setTranscription({
+        metadata: cloudTrack.metadata,
+        lines: cloudTrack.lines,
+      });
+
+      setSaveStatus('Đã tải bài hát từ Neon PostgreSQL');
       setTimeout(() => setSaveStatus(null), 3000);
     },
     [player]
@@ -448,6 +472,7 @@ export default function Home(): React.JSX.Element {
         isOpen={isProjectsModalOpen}
         onClose={() => setIsProjectsModalOpen(false)}
         onSelectProject={handleSelectSavedProject}
+        onSelectCloudTrack={handleSelectCloudTrack}
         currentProjectId={currentProjectId}
       />
     </div>

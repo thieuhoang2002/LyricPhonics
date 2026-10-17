@@ -1,4 +1,4 @@
-﻿namespace LyricPhonics.Infrastructure.Gemini;
+namespace LyricPhonics.Infrastructure.Gemini;
 
 /// <summary>
 /// Chứa các mẫu System Prompt và User Instruction cho Gemini Multimodal Audio Model.
@@ -16,9 +16,10 @@ Nhiệm vụ của bạn là lắng nghe bài hát được cung cấp trong t�
 YÊU CẦU BẮT BUỘC:
 1. Xác định ngôn ngữ gốc (ví dụ: 'Chinese', 'Korean', 'Japanese', 'English', 'Thai').
 2. Tách câu hát theo đúng nhịp ngắt nghỉ hơi của ca sĩ (phách nhạc), gán startTime và endTime chính xác tính bằng giây (số thực, ví dụ 12.45).
-3. Mỗi câu hát BẮT BUỘC bao gồm 3 tầng:
+3. Mỗi câu hát BẮT BUỘC bao gồm 4 tầng:
    - originalText: Lời bài hát bằng chữ viết gốc (chữ Hán, Hangul, Kana, English...).
-   - phoneticText: Phiên âm tiếng Việt bồi CHUẨN KHẨU HÌNH và THANH ĐIỆU người Việt, ngắt đúng số âm tiết để hát cover theo điệu nhạc tự nhiên nhất (Ví dụ tiếng Trung: 'Thú xuy mính uế i oảng xí', 'Ủa ai nỉ').
+   - standardPhonetic: Phiên âm chuẩn quốc tế (Pinyin kèm thanh điệu cho tiếng Trung, Romaji tiếng Nhật, Romaja tiếng Hàn, IPA tiếng Anh).
+   - phoneticText: Phiên âm tiếng Việt bồi CHUẨN KHẨU HÌNH và THANH ĐIỆU người Việt, ngắt đúng số âm tiết để hát cover theo điệu nhạc tự nhiên nhất (Ví dụ tiếng Trung: 'Thú yú liếu míng uế i oảng xí', 'Ủa ai nỉ').
    - translationText: Nghĩa tiếng Việt vắn tắt, giàu chất thơ và cảm xúc âm nhạc.
 4. Đầu ra BẮT BUỘC tuân thủ cấu trúc JSON sau:
 {
@@ -32,11 +33,12 @@ YÊU CẦU BẮT BUỘC:
       ""startTime"": 0.0,
       ""endTime"": 3.5,
       ""originalText"": ""Lời gốc"",
+      ""standardPhonetic"": ""Phiên âm chuẩn quốc tế"",
       ""phoneticText"": ""Lời bồi tiếng Việt chuẩn nhịp"",
       ""translationText"": ""Dịch nghĩa""
     }
   ]
 }";
 
-    public const string UserInstruction = "Hãy lắng nghe kỹ toàn bộ file âm thanh/video này và bóc tách lời bài hát 3 tầng kèm mốc thời gian [startTime, endTime] theo đúng cấu trúc JSON đã hướng dẫn.";
+    public const string UserInstruction = "Hãy lắng nghe kỹ toàn bộ file âm thanh/video này và bóc tách lời bài hát 4 tầng (lời gốc, phiên âm chuẩn quốc tế, phiên âm bồi tiếng Việt, dịch nghĩa) kèm mốc thời gian [startTime, endTime] theo đúng cấu trúc JSON đã hướng dẫn.";
 }

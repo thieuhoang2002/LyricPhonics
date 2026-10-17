@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -193,7 +193,8 @@ public class GeminiTranscriptionService : ITranscriptionService
                         EndTime: Math.Max(line.StartTime, line.EndTime),
                         OriginalText: line.OriginalText?.Trim() ?? string.Empty,
                         PhoneticText: line.PhoneticText?.Trim() ?? string.Empty,
-                        TranslationText: line.TranslationText?.Trim()
+                        TranslationText: line.TranslationText?.Trim(),
+                        StandardPhonetic: line.StandardPhonetic?.Trim()
                     ));
                 }
             }

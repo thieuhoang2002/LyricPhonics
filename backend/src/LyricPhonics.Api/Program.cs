@@ -78,8 +78,28 @@ app.MapGet("/", () => Results.Ok(new
 .WithTags("Health")
 .ExcludeFromDescription();
 
-// Đăng ký các endpoints bóc tách âm thanh
+// Đăng ký các endpoints bóc tách âm thanh, tái tạo phiên âm và quản lý bài hát
 app.MapTranscribeEndpoints();
+app.MapPhonicsEndpoints();
+app.MapTrackEndpoints();
+
+// Tự động kiểm tra và khởi tạo bảng PostgreSQL (Neon DB) nếu đã cấu hình
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetService<LyricPhonics.Infrastructure.Persistence.LyricPhonicsDbContext>();
+    if (dbContext != null)
+    {
+        try
+        {
+            await dbContext.Database.EnsureCreatedAsync();
+            app.Logger.LogInformation("Đã kết nối thành công tới PostgreSQL (Neon DB) và đồng bộ cấu trúc bảng.");
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogWarning(ex, "Chưa thể kết nối tới PostgreSQL (Neon DB). Ứng dụng vẫn hoạt động bình thường.");
+        }
+    }
+}
 
 app.Run();
 
