@@ -24,6 +24,7 @@ declare global {
         }
       ) => string;
       reset: (widgetId: string) => void;
+      remove: (widgetId: string) => void;
     };
     onTurnstileLoaded?: () => void;
   }
@@ -39,13 +40,23 @@ export function TurnstileWidget({
   const widgetIdRef = useRef<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Lưu callbacks trong ref để tránh re-render trigger effect lặp vô tận
+  const onVerifyRef = useRef(onVerify);
+  onVerifyRef.current = onVerify;
+
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
+
   // Lấy siteKey từ props hoặc biến môi trường NEXT_PUBLIC_TURNSTILE_SITE_KEY
   const resolvedSiteKey = siteKey || process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
 
   useEffect(() => {
     // 1. Nếu không có siteKey (chạy local / chưa cấu hình Turnstile), tự động cấp token dev pass
     if (!resolvedSiteKey || resolvedSiteKey.trim() === '') {
-      onVerify('dev_mock_turnstile_pass');
+      onVerifyRef.current?.('dev_mock_turnstile_pass');
       return;
     }
 
@@ -56,19 +67,21 @@ export function TurnstileWidget({
     const renderWidget = () => {
       if (window.turnstile && containerRef.current && !widgetIdRef.current) {
         try {
-          widgetIdRef.current = window.turnstile.render(containerRef.current, {
-            sitekey: resolvedSiteKey,
+          containerRef.current.innerHTML = '';
+          const id = window.turnstile.render(containerRef.current, {
+            sitekey: resolvedSiteKey.trim(),
             theme: 'dark',
             callback: (token: string) => {
-              onVerify(token);
+              onVerifyRef.current?.(token);
             },
             'error-callback': () => {
-              onError?.();
+              onErrorRef.current?.();
             },
             'expired-callback': () => {
-              onExpire?.();
+              onExpireRef.current?.();
             },
           });
+          widgetIdRef.current = id;
           setIsLoaded(true);
         } catch (e) {
           console.error('Turnstile render error:', e);
@@ -97,14 +110,14 @@ export function TurnstileWidget({
     return () => {
       if (widgetIdRef.current && window.turnstile) {
         try {
-          window.turnstile.reset(widgetIdRef.current);
+          window.turnstile.remove(widgetIdRef.current);
         } catch {
           // ignore
         }
         widgetIdRef.current = null;
       }
     };
-  }, [resolvedSiteKey, onVerify, onError, onExpire]);
+  }, [resolvedSiteKey]);
 
   // Nếu không có site key, hiển thị huy hiệu bảo mật phát triển
   if (!resolvedSiteKey || resolvedSiteKey.trim() === '') {

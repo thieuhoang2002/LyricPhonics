@@ -308,9 +308,19 @@ public class AdminService : IAdminService
         return true;
     }
 
+    private string GetJwtSecret()
+    {
+        string? secret = _configuration["Jwt:Secret"];
+        if (string.IsNullOrWhiteSpace(secret)) secret = _configuration["JWT_SECRET_KEY"];
+        if (string.IsNullOrWhiteSpace(secret)) secret = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+        if (string.IsNullOrWhiteSpace(secret)) secret = Environment.GetEnvironmentVariable("Jwt__SecretKey");
+        if (string.IsNullOrWhiteSpace(secret)) secret = "LyricPhonics_Default_Fallback_Secret_Key_32bytes_Long!";
+        return secret;
+    }
+
     private string GenerateChallengeToken(string email)
     {
-        string secret = _configuration["Jwt:Secret"] ?? "LyricPhonics_Default_Fallback_Secret_Key_32bytes_Long!";
+        string secret = GetJwtSecret();
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
@@ -335,7 +345,7 @@ public class AdminService : IAdminService
     private bool ValidateChallengeToken(string token, out string? email)
     {
         email = null;
-        string secret = _configuration["Jwt:Secret"] ?? "LyricPhonics_Default_Fallback_Secret_Key_32bytes_Long!";
+        string secret = GetJwtSecret();
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.UTF8.GetBytes(secret);
 
@@ -364,7 +374,7 @@ public class AdminService : IAdminService
 
     private string GenerateAdminJwtToken(string email)
     {
-        string secret = _configuration["Jwt:Secret"] ?? "LyricPhonics_Default_Fallback_Secret_Key_32bytes_Long!";
+        string secret = GetJwtSecret();
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 

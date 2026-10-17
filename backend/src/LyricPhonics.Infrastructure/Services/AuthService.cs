@@ -146,9 +146,19 @@ public class AuthService : IAuthService
         return await _userRepository.GetByIdAsync(userId, cancellationToken);
     }
 
+    private string GetJwtSecret()
+    {
+        string? secret = _configuration["Jwt:Secret"];
+        if (string.IsNullOrWhiteSpace(secret)) secret = _configuration["JWT_SECRET_KEY"];
+        if (string.IsNullOrWhiteSpace(secret)) secret = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+        if (string.IsNullOrWhiteSpace(secret)) secret = Environment.GetEnvironmentVariable("Jwt__SecretKey");
+        if (string.IsNullOrWhiteSpace(secret)) secret = "LyricPhonics_Default_Fallback_Secret_Key_32bytes_Long!";
+        return secret;
+    }
+
     public string GenerateJwtToken(UserEntity user)
     {
-        string secret = _configuration["Jwt:Secret"] ?? "LyricPhonics_Default_Fallback_Secret_Key_32bytes_Long!";
+        string secret = GetJwtSecret();
         string issuer = _configuration["Jwt:Issuer"] ?? "LyricPhonics";
         string audience = _configuration["Jwt:Audience"] ?? "LyricPhonicsAudience";
         int expiryDays = int.TryParse(_configuration["Jwt:ExpiryDays"], out int days) ? days : 30;
@@ -184,7 +194,7 @@ public class AuthService : IAuthService
             ? authHeader.Substring(7).Trim()
             : authHeader.Trim();
 
-        string secret = _configuration["Jwt:Secret"] ?? "LyricPhonics_Default_Fallback_Secret_Key_32bytes_Long!";
+        string secret = GetJwtSecret();
         string issuer = _configuration["Jwt:Issuer"] ?? "LyricPhonics";
         string audience = _configuration["Jwt:Audience"] ?? "LyricPhonicsAudience";
 
