@@ -44,8 +44,15 @@ public class AdminService : IAdminService
 
     public async Task<AdminLayer1Result> LoginLayer1Async(AdminLayer1Request request, CancellationToken cancellationToken = default)
     {
-        string expectedEmail = _configuration["Admin:Email"] ?? "admin@example.com";
-        string expectedPassword = _configuration["Admin:Password"] ?? "AdminSecurePass_ChangeMe_2026!";
+        string expectedEmail = _configuration["Admin:Email"] 
+            ?? _configuration["AdminConfig:Email"] 
+            ?? Environment.GetEnvironmentVariable("ADMIN_EMAIL") 
+            ?? "admin@example.com";
+
+        string expectedPassword = _configuration["Admin:Password"] 
+            ?? _configuration["AdminConfig:Password"] 
+            ?? Environment.GetEnvironmentVariable("ADMIN_PASSWORD") 
+            ?? "AdminSecurePass_ChangeMe_2026!";
 
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
         {
@@ -62,9 +69,17 @@ public class AdminService : IAdminService
         var security = await _dbContext.AdminSecurities.FirstOrDefaultAsync(cancellationToken);
         if (security == null)
         {
-            string defaultHint = _configuration["Admin:MasterHint"] ?? "Sinh nhat va ten viet tat in hoa (DEFAULT_MASTER_KEY_2026)";
-            // Khởi tạo ciphertext mã hóa mặc định với mật khẩu DEFAULT_MASTER_KEY_2026
-            var package = MilitaryWebCrypto.Encrypt("LYRIC_PHONICS_SUPER_ADMIN_VERIFIED", "DEFAULT_MASTER_KEY_2026", defaultHint);
+            string defaultPassphrase = _configuration["Admin:MasterPassphrase"]
+                ?? _configuration["AdminConfig:MasterPassphrase"]
+                ?? Environment.GetEnvironmentVariable("ADMIN_MASTER_PASSPHRASE")
+                ?? "DEFAULT_MASTER_KEY_2026";
+            string defaultHint = _configuration["Admin:MasterHint"] 
+                ?? _configuration["AdminConfig:PassphraseHint"]
+                ?? Environment.GetEnvironmentVariable("ADMIN_PASSPHRASE_HINT")
+                ?? "Sinh nhat va ten viet tat in hoa (DEFAULT_MASTER_KEY_2026)";
+
+            // Khởi tạo ciphertext mã hóa ban đầu
+            var package = MilitaryWebCrypto.Encrypt("LYRIC_PHONICS_SUPER_ADMIN_VERIFIED", defaultPassphrase, defaultHint);
             security = new AdminSecurityEntity
             {
                 Ciphertext = package.Ciphertext,
