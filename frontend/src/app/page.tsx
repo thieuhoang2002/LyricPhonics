@@ -59,6 +59,8 @@ export default function Home(): React.JSX.Element {
 
       try {
         const formData = new FormData();
+        formData.append('file', selectedFile);
+
         const apiUrl = process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/api/transcribe`
           : 'http://localhost:5000/api/transcribe';

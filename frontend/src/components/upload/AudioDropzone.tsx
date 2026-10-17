@@ -11,7 +11,7 @@ export interface AudioDropzoneProps {
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
 
-const ACCEPTED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.mp4', '.ogg', '.aac', '.webm'];
+const ACCEPTED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.mp4', '.mov', '.m4v', '.ogg', '.aac', '.flac', '.webm'];
 
 export function AudioDropzone({
   onFileSelected,

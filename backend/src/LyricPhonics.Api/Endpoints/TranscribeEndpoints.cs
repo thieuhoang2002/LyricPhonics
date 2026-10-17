@@ -1,4 +1,4 @@
-﻿using LyricPhonics.Application.Interfaces;
+using LyricPhonics.Application.Interfaces;
 
 namespace LyricPhonics.Api.Endpoints;
 
@@ -23,8 +23,12 @@ public static class TranscribeEndpoints
         "audio/m4a",
         "audio/ogg",
         "audio/webm",
+        "audio/aac",
+        "audio/flac",
         "video/mp4",
-        "video/webm"
+        "video/webm",
+        "video/quicktime",
+        "video/x-m4v"
     };
 
     private const long MaxFileSizeBytes = 25 * 1024 * 1024; // 25 MB
@@ -36,10 +40,22 @@ public static class TranscribeEndpoints
             .WithOpenApi();
 
         group.MapPost("/", async (
-            IFormFile? file,
+            HttpRequest request,
             ITranscriptionService transcriptionService,
             CancellationToken cancellationToken) =>
         {
+            if (!request.HasFormContentType)
+            {
+                return Results.BadRequest(new
+                {
+                    success = false,
+                    error = "Yêu cầu phải có định dạng multipart/form-data."
+                });
+            }
+
+            var form = await request.ReadFormAsync(cancellationToken);
+            var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
+
             // 1. Kiểm tra sự tồn tại của file tải lên
             if (file == null || file.Length == 0)
             {
@@ -60,19 +76,24 @@ public static class TranscribeEndpoints
                 });
             }
 
-            // 3. Kiểm tra định dạng MIME hợp lệ (Content Isolation & Security)
+            // 3. Kiểm tra và chuẩn hóa định dạng MIME hợp lệ
+            string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             string contentType = file.ContentType;
-            if (!AllowedMimeTypes.Contains(contentType))
+
+            if (string.IsNullOrWhiteSpace(contentType) || contentType == "application/octet-stream" || !AllowedMimeTypes.Contains(contentType))
             {
-                // Kiểm tra dự phòng theo đuôi file nếu trình duyệt gửi MIME không chuẩn
-                string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
                 contentType = extension switch
                 {
                     ".mp3" => "audio/mpeg",
                     ".wav" => "audio/wav",
                     ".m4a" => "audio/x-m4a",
                     ".mp4" => "video/mp4",
+                    ".mov" => "video/mp4",
+                    ".m4v" => "video/mp4",
                     ".ogg" => "audio/ogg",
+                    ".webm" => "video/webm",
+                    ".aac" => "audio/aac",
+                    ".flac" => "audio/flac",
                     _ => contentType
                 };
 
@@ -81,7 +102,7 @@ public static class TranscribeEndpoints
                     return Results.BadRequest(new
                     {
                         success = false,
-                        error = $"Định dạng tệp '{extension}' không được hỗ trợ. Vui lòng tải lên MP3, WAV, M4A hoặc MP4."
+                        error = $"Định dạng tệp '{extension}' không được hỗ trợ. Vui lòng tải lên MP3, WAV, M4A, MP4 hoặc MOV."
                     });
                 }
             }
