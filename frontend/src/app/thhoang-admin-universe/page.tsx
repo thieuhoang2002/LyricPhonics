@@ -56,7 +56,7 @@ interface PricingTierItem {
 export default function AdminUniversePage(): React.JSX.Element {
   // Auth state
   const [step, setStep] = useState<1 | 2>(1);
-  const [email, setEmail] = useState('admin@example.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
   const [hint, setHint] = useState<string>('');
@@ -371,7 +371,7 @@ export default function AdminUniversePage(): React.JSX.Element {
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <div>
                   <div className="font-semibold">Gợi nhớ bảo mật (Hint):</div>
-                  <div className="mt-0.5 text-zinc-300">{hint || 'Sinh nhat va ten viet tat in hoa (DEFAULT_MASTER_KEY_2026)'}</div>
+                  <div className="mt-0.5 text-zinc-300">{hint || 'Gợi ý bảo mật đã cấu hình'}</div>
                 </div>
               </div>
 
@@ -385,7 +385,7 @@ export default function AdminUniversePage(): React.JSX.Element {
                   autoFocus
                   value={masterPassphrase}
                   onChange={(e) => setMasterPassphrase(e.target.value)}
-                  placeholder="Nhập Master Passphrase (mặc định: DEFAULT_MASTER_KEY_2026)"
+                  placeholder="Nhập Master Passphrase bí mật"
                   className="w-full bg-[#111112] border border-[#262629] focus:border-[#2836f7] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none font-mono"
                 />
               </div>

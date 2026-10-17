@@ -74,7 +74,7 @@ public class AdminService : IAdminService
         string? hint = Environment.GetEnvironmentVariable("ADMIN_PASSPHRASE_HINT");
         if (string.IsNullOrWhiteSpace(hint)) hint = _configuration["Admin:MasterHint"];
         if (string.IsNullOrWhiteSpace(hint)) hint = _configuration["AdminConfig:PassphraseHint"];
-        if (string.IsNullOrWhiteSpace(hint)) hint = "Sinh nhat va ten viet tat in hoa (DEFAULT_MASTER_KEY_2026)";
+        if (string.IsNullOrWhiteSpace(hint)) hint = "Default Master Passphrase (Configurable via ADMIN_PASSPHRASE_HINT)";
         return hint.Trim();
     }
 

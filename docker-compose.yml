@@ -19,7 +19,7 @@ services:
       - AdminConfig__Email=${ADMIN_EMAIL:-admin@example.com}
       - AdminConfig__Password=${ADMIN_PASSWORD}
       - AdminConfig__MasterPassphrase=${ADMIN_MASTER_PASSPHRASE}
-      - AdminConfig__PassphraseHint=${ADMIN_PASSPHRASE_HINT:-Sinh nhat va ten viet tat in hoa (DEFAULT_MASTER_KEY_2026)}
+      - AdminConfig__PassphraseHint=${ADMIN_PASSPHRASE_HINT:-Default Passphrase Hint}
       - CloudflareTurnstile__SecretKey=${TURNSTILE_SECRET_KEY:-}
       - Cloudflare__R2__AccountId=${R2_ACCOUNT_ID:-}
       - Cloudflare__R2__AccessKeyId=${R2_ACCESS_KEY_ID:-}
