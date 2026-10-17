@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { LyricLine, TranscriptionResult } from '@/types/lyrics';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { useLyricSync } from '@/hooks/useLyricSync';
@@ -9,18 +9,22 @@ import { LyricView } from '@/components/lyrics/LyricView';
 import { AudioPlayerBar } from '@/components/player/AudioPlayerBar';
 import { LyricEditorControls } from '@/components/lyrics/LyricEditorControls';
 import { ExportToolbar } from '@/components/export/ExportToolbar';
-import { safeLocalStorageGet, safeLocalStorageSet } from '@/lib/security';
+import { SavedProjectsModal } from '@/components/storage/SavedProjectsModal';
+import {
+  saveProject,
+  getLatestProject,
+  type SavedProject,
+} from '@/lib/storage/projectStore';
 import {
   Mic,
   Music,
   Sparkles,
-  Upload,
   RotateCcw,
   SlidersHorizontal,
   Info,
+  FolderHeart,
+  CheckCircle2,
 } from 'lucide-react';
-
-const STORAGE_KEY = 'lyricphonics_session_v1';
 
 export default function Home(): React.JSX.Element {
   const [file, setFile] = useState<File | null>(null);
@@ -31,29 +35,53 @@ export default function Home(): React.JSX.Element {
   const [editingLine, setEditingLine] = useState<LyricLine | null>(null);
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
 
+  // Storage states
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [isProjectsModalOpen, setIsProjectsModalOpen] = useState<boolean>(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  // Giữ tham chiếu audio blob hiện tại để lưu khi edit lời
+  const currentBlobRef = useRef<Blob | null>(null);
+
   const player = useAudioPlayer(audioUrl);
   const { activeLineIndex } = useLyricSync(transcription?.lines || [], player.currentTime);
 
-  // Restore saved transcription session from localStorage on initial load
+  // Tự động khôi phục bài hát & lời gần nhất từ IndexedDB khi mở trang web
   useEffect(() => {
-    const saved = safeLocalStorageGet<TranscriptionResult | null>(STORAGE_KEY, null);
-    if (saved && saved.lines && saved.lines.length > 0) {
-      setTranscription(saved);
-    }
+    let isMounted = true;
+    const restoreSession = async () => {
+      try {
+        const latest = await getLatestProject();
+        if (!isMounted || !latest || !latest.transcription) return;
+
+        setCurrentProjectId(latest.id);
+        setTranscription(latest.transcription);
+
+        if (latest.audioBlob) {
+          currentBlobRef.current = latest.audioBlob;
+          const url = URL.createObjectURL(latest.audioBlob);
+          setAudioUrl(url);
+        }
+
+        setSaveStatus('Đã khôi phục từ bộ nhớ');
+        setTimeout(() => setSaveStatus(null), 3000);
+      } catch (err) {
+        console.warn('Lỗi khi khôi phục dự án gần nhất:', err);
+      }
+    };
+
+    restoreSession();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Save transcription to localStorage whenever it changes
-  useEffect(() => {
-    if (transcription && transcription.lines.length > 0) {
-      safeLocalStorageSet(STORAGE_KEY, transcription);
-    }
-  }, [transcription]);
-
-  // Handle uploaded audio/video file and trigger transcription API
+  // Xử lý khi người dùng tải file lên và gọi API phân tích AI
   const handleFileSelected = useCallback(
     async (selectedFile: File, objectUrl: string): Promise<void> => {
       setFile(selectedFile);
       setAudioUrl(objectUrl);
+      currentBlobRef.current = selectedFile;
       setIsProcessing(true);
       setErrorMessage(null);
 
@@ -86,6 +114,22 @@ export default function Home(): React.JSX.Element {
         };
 
         setTranscription(result);
+
+        // Lưu vĩnh viễn cả Audio File và Lyrics vào IndexedDB
+        const projectId = `track_${Date.now()}`;
+        setCurrentProjectId(projectId);
+        await saveProject({
+          id: projectId,
+          title: result.metadata.title || selectedFile.name,
+          fileName: selectedFile.name,
+          mimeType: selectedFile.type,
+          audioBlob: selectedFile,
+          transcription: result,
+          updatedAt: Date.now(),
+        });
+
+        setSaveStatus('Đã tự động lưu vào máy');
+        setTimeout(() => setSaveStatus(null), 3500);
       } catch (err) {
         console.error('Transcription error:', err);
         setErrorMessage(
@@ -100,7 +144,7 @@ export default function Home(): React.JSX.Element {
     []
   );
 
-  // Load a synthetic demo track for instant interactive preview
+  // Mở bài hát mẫu demo
   const handleLoadDemo = useCallback((): void => {
     const demoResult: TranscriptionResult = {
       metadata: {
@@ -155,30 +199,68 @@ export default function Home(): React.JSX.Element {
     setTranscription(demoResult);
   }, []);
 
-  const handleUpdateLine = useCallback((updatedLine: LyricLine): void => {
-    setTranscription((prev) => {
-      if (!prev) return null;
-      const nextLines = prev.lines
-        .map((l) => (l.id === updatedLine.id ? updatedLine : l))
-        .sort((a, b) => a.startTime - b.startTime);
+  // Cập nhật câu hát khi người dùng chỉnh sửa lời hoặc timestamp
+  const handleUpdateLine = useCallback(
+    (updatedLine: LyricLine): void => {
+      setTranscription((prev) => {
+        if (!prev) return null;
+        const nextLines = prev.lines
+          .map((l) => (l.id === updatedLine.id ? updatedLine : l))
+          .sort((a, b) => a.startTime - b.startTime);
 
-      return {
-        ...prev,
-        lines: nextLines,
-      };
-    });
-  }, []);
+        const updatedResult = {
+          ...prev,
+          lines: nextLines,
+        };
 
+        // Đồng bộ cập nhật vào IndexedDB nếu đang có project
+        if (currentProjectId && currentBlobRef.current) {
+          saveProject({
+            id: currentProjectId,
+            title: updatedResult.metadata.title || 'Bài hát đã lưu',
+            fileName: file?.name || 'audio.mp4',
+            mimeType: currentBlobRef.current.type || 'audio/mp4',
+            audioBlob: currentBlobRef.current,
+            transcription: updatedResult,
+            updatedAt: Date.now(),
+          }).catch((err) => console.warn('Lỗi auto-save khi edit lời:', err));
+        }
+
+        return updatedResult;
+      });
+    },
+    [currentProjectId, file]
+  );
+
+  // Chọn mở một bài hát từ modal Thư viện bài hát đã lưu
+  const handleSelectSavedProject = useCallback(
+    (project: SavedProject): void => {
+      player.reset();
+      setCurrentProjectId(project.id);
+      setTranscription(project.transcription);
+      currentBlobRef.current = project.audioBlob;
+
+      if (project.audioBlob) {
+        const url = URL.createObjectURL(project.audioBlob);
+        setAudioUrl(url);
+      }
+
+      setSaveStatus('Đã mở bài hát từ thư viện');
+      setTimeout(() => setSaveStatus(null), 3000);
+    },
+    [player]
+  );
+
+  // Reset sang chế độ tải bài mới (không xóa dữ liệu đã lưu trong IndexedDB)
   const handleResetSession = useCallback((): void => {
     player.reset();
     setFile(null);
     setAudioUrl(null);
+    currentBlobRef.current = null;
     setTranscription(null);
     setErrorMessage(null);
     setEditingLine(null);
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
+    setCurrentProjectId(null);
   }, [player]);
 
   const hasLyrics = Boolean(transcription && transcription.lines.length > 0);
@@ -205,6 +287,17 @@ export default function Home(): React.JSX.Element {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Nút mở thư viện bài hát đã lưu */}
+          <button
+            type="button"
+            onClick={() => setIsProjectsModalOpen(true)}
+            className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 border border-slate-800 text-slate-300 hover:text-cyan-300 hover:border-slate-700 flex items-center gap-1.5 transition-colors"
+            title="Xem danh sách các bài hát đã lưu trong máy"
+          >
+            <FolderHeart className="w-3.5 h-3.5 text-rose-400" />
+            <span className="hidden sm:inline">Thư viện bài hát</span>
+          </button>
+
           {hasLyrics && (
             <>
               <button
@@ -253,7 +346,7 @@ export default function Home(): React.JSX.Element {
           <div className="flex flex-col items-center justify-center my-auto py-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 mb-6 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-xs font-medium">
               <Sparkles className="w-3.5 h-3.5" />
-              Gemini Multimodal Audio 2.5 Flash Engine
+              Gemini Multimodal Audio 3.5 Flash Engine
             </div>
 
             <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-white mb-4 text-center max-w-2xl">
@@ -276,7 +369,7 @@ export default function Home(): React.JSX.Element {
 
             <div className="mt-8 flex items-center gap-2 text-xs text-slate-500 bg-slate-900/40 px-4 py-2 rounded-xl border border-slate-800/60">
               <Info className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Chưa có file? Bấm nút <strong>&quot;Thử bài mẫu&quot;</strong> ở góc phải để trải nghiệm ngay.</span>
+              <span>Chưa có file? Bấm nút <strong>&quot;Thử bài mẫu&quot;</strong> hoặc mở <strong>&quot;Thư viện bài hát&quot;</strong> để nghe lại bài cũ.</span>
             </div>
           </div>
         ) : (
@@ -290,6 +383,12 @@ export default function Home(): React.JSX.Element {
                   <h2 className="text-lg font-bold text-white">
                     {transcription?.metadata.title || file?.name || 'Bài hát đang phát'}
                   </h2>
+                  {saveStatus && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                      {saveStatus}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {transcription?.lines.length} câu hát • Nhấp câu bất kỳ để tua nhạc • Nhấp đúp để sửa lời & căn chỉnh thời gian
@@ -343,6 +442,14 @@ export default function Home(): React.JSX.Element {
           onClose={() => setEditingLine(null)}
         />
       )}
+
+      {/* Thư viện bài hát đã lưu Modal */}
+      <SavedProjectsModal
+        isOpen={isProjectsModalOpen}
+        onClose={() => setIsProjectsModalOpen(false)}
+        onSelectProject={handleSelectSavedProject}
+        currentProjectId={currentProjectId}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
 using LyricPhonics.Application.Interfaces;
@@ -32,12 +32,17 @@ public static class DependencyInjection
         // 2. Đăng ký Typed HttpClient với Polly Resilience Handler
         services.AddHttpClient<ITranscriptionService, GeminiTranscriptionService>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(120); // Giới hạn tổng thể cho tác vụ phân tích file âm thanh
+            client.Timeout = TimeSpan.FromMinutes(4); // Giới hạn tổng thể cho tác vụ phân tích file âm thanh/video
         })
         .AddStandardResilienceHandler(options =>
         {
+            // Thiết lập timeout phù hợp cho Gemini Audio/Video Multimodal (thời gian bóc tách có thể từ 20-60 giây)
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(90);
+            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(180); // Polly v8: SamplingDuration >= 2 * AttemptTimeout
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(4);
+
             // Tùy chỉnh Retry Policy cho phù hợp với API AI
-            options.Retry.MaxRetryAttempts = 3;
+            options.Retry.MaxRetryAttempts = 2;
             options.Retry.Delay = TimeSpan.FromSeconds(2);
             options.Retry.BackoffType = Polly.DelayBackoffType.Exponential;
             options.Retry.UseJitter = true; // Thêm độ lệch ngẫu nhiên để tránh hiện tượng dồn cục (Thundering Herd)

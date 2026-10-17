@@ -33,6 +33,7 @@ dist/
 .pnp.js
 coverage/
 **/coverage/
+*.tsbuildinfo
 
 # --------------------------------------------------------------------
 # 3. Environment Variables & Secrets (ZERO LEAKAGE GUARD)

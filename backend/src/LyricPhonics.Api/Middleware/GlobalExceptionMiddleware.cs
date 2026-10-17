@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text.Json;
 
 namespace LyricPhonics.Api.Middleware;
@@ -44,7 +44,8 @@ public class GlobalExceptionMiddleware
             ArgumentException argEx => (HttpStatusCode.BadRequest, argEx.Message),
             InvalidOperationException opEx => (HttpStatusCode.BadRequest, opEx.Message),
             FormatException fmtEx => (HttpStatusCode.UnprocessableEntity, fmtEx.Message),
-            HttpRequestException httpEx => (HttpStatusCode.BadGateway, "Lỗi kết nối tới máy chủ AI bên ngoài."),
+            HttpRequestException httpEx => (HttpStatusCode.BadGateway, $"Lỗi kết nối tới máy chủ AI: {httpEx.Message}"),
+            ApplicationException appEx => (HttpStatusCode.ServiceUnavailable, appEx.Message),
             _ => (HttpStatusCode.InternalServerError, "Máy chủ đã gặp sự cố nội bộ. Vui lòng thử lại sau.")
         };
 
