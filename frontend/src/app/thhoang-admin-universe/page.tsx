@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { getApiBaseUrl } from '@/lib/api/config';
 import {
   ShieldAlert,
   ShieldCheck,
@@ -97,7 +98,7 @@ export default function AdminUniversePage(): React.JSX.Element {
     setAuthLoading(true);
 
     try {
-      const res = await fetch('http://localhost:5000/api/admin/login-layer1', {
+      const res = await fetch(`${getApiBaseUrl()}/api/admin/login-layer1`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password }),
@@ -127,7 +128,7 @@ export default function AdminUniversePage(): React.JSX.Element {
     setAuthLoading(true);
 
     try {
-      const res = await fetch('http://localhost:5000/api/admin/verify-layer2', {
+      const res = await fetch(`${getApiBaseUrl()}/api/admin/verify-layer2`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -159,15 +160,15 @@ export default function AdminUniversePage(): React.JSX.Element {
     setLoadingData(true);
     try {
       // 1. Users
-      const usersRes = await fetch(`http://localhost:5000/api/admin/users${searchUser ? `?search=${encodeURIComponent(searchUser)}` : ''}`);
+      const usersRes = await fetch(`${getApiBaseUrl()}/api/admin/users${searchUser ? `?search=${encodeURIComponent(searchUser)}` : ''}`);
       if (usersRes.ok) setUsers(await usersRes.json());
 
       // 2. API Keys
-      const keysRes = await fetch('http://localhost:5000/api/admin/api-keys');
+      const keysRes = await fetch(`${getApiBaseUrl()}/api/admin/api-keys`);
       if (keysRes.ok) setApiKeys(await keysRes.json());
 
       // 3. Pricing Tiers
-      const pricingRes = await fetch('http://localhost:5000/api/admin/pricing');
+      const pricingRes = await fetch(`${getApiBaseUrl()}/api/admin/pricing`);
       if (pricingRes.ok) setPricingTiers(await pricingRes.json());
     } catch (err) {
       console.error('Load dashboard error:', err);
@@ -185,7 +186,7 @@ export default function AdminUniversePage(): React.JSX.Element {
   // Adjust User Credits
   const handleAdjustCredits = async (userId: string, delta: number) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/users/${userId}/credits`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/admin/users/${userId}/credits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ delta }),
@@ -207,7 +208,7 @@ export default function AdminUniversePage(): React.JSX.Element {
   const handleCheckKeyHealth = async (keyId: string) => {
     showNotice('Đang ping kiểm tra API Key...');
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/api-keys/${keyId}/health-check`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/admin/api-keys/${keyId}/health-check`, {
         method: 'POST',
       });
       if (res.ok) {
@@ -226,7 +227,7 @@ export default function AdminUniversePage(): React.JSX.Element {
     if (!newKeyValue.trim()) return;
 
     try {
-      const res = await fetch('http://localhost:5000/api/admin/api-keys', {
+      const res = await fetch(`${getApiBaseUrl()}/api/admin/api-keys`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider: newKeyProvider, keyValue: newKeyValue.trim() }),
@@ -246,7 +247,7 @@ export default function AdminUniversePage(): React.JSX.Element {
   const handleDeleteApiKey = async (keyId: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa API Key này?')) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/api-keys/${keyId}`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/admin/api-keys/${keyId}`, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -261,7 +262,7 @@ export default function AdminUniversePage(): React.JSX.Element {
   // Update Pricing Tier
   const handleUpdateTier = async (tier: PricingTierItem) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/pricing/${tier.id}`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/admin/pricing/${tier.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

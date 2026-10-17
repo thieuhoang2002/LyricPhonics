@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from '@/lib/api/config';
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -29,7 +31,7 @@ export async function fetchCurrentUser(): Promise<UserProfile | null> {
   if (!token) return null;
 
   try {
-    const res = await fetch('http://localhost:5000/api/auth/me', {
+    const res = await fetch(`${getApiBaseUrl()}/api/auth/me`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

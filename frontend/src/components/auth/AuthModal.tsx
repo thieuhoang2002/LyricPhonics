@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X, Lock, Mail, ShieldCheck, Loader2, Sparkles } from 'lucide-react';
 import { setAuthToken, type UserProfile } from '@/lib/auth/authStore';
+import { getApiBaseUrl } from '@/lib/api/config';
 
 export interface AuthModalProps {
   isOpen: boolean;
@@ -49,9 +50,10 @@ export function AuthModal({
 
     setLoading(true);
     try {
+      const baseUrl = getApiBaseUrl();
       const endpoint = mode === 'register' 
-        ? 'http://localhost:5000/api/auth/register' 
-        : 'http://localhost:5000/api/auth/login';
+        ? `${baseUrl}/api/auth/register` 
+        : `${baseUrl}/api/auth/login`;
 
       const payload = mode === 'register'
         ? {

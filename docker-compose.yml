@@ -1,0 +1,41 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lyricphonics-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__DefaultConnection=${DATABASE_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - Jwt__SecretKey=${JWT_SECRET_KEY}
+      - Jwt__Issuer=LyricPhonicsAuth
+      - Jwt__Audience=LyricPhonicsClient
+      - AdminConfig__Email=${ADMIN_EMAIL:-admin@example.com}
+      - AdminConfig__Password=${ADMIN_PASSWORD}
+      - AdminConfig__MasterPassphrase=${ADMIN_MASTER_PASSPHRASE}
+      - AdminConfig__PassphraseHint=${ADMIN_PASSPHRASE_HINT:-Sinh nhat va ten viet tat in hoa (DEFAULT_MASTER_KEY_2026)}
+      - CloudflareTurnstile__SecretKey=${TURNSTILE_SECRET_KEY:-}
+      - Cors__AllowedOrigins__0=${FRONTEND_URL:-http://localhost:3000}
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
+    container_name: lyricphonics-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:5000}
+      - NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
+    depends_on:
+      - backend
