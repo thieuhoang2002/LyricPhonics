@@ -111,6 +111,9 @@ export function LyricView({
           </div>
         );
       })}
+
+      {/* Spacer đảm bảo dòng cuối cùng luôn hiển thị rõ ràng, không bao giờ bị Audio Player Bar che khuất */}
+      <div className="h-32 shrink-0 pointer-events-none" aria-hidden="true" />
     </div>
   );
 }

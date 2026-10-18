@@ -11,6 +11,9 @@ import {
   Database,
   HardDrive,
   Sparkles,
+  CloudUpload,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import {
   getAllProjectSummaries,
@@ -21,6 +24,7 @@ import {
 } from '@/lib/storage/projectStore';
 import type { TranscriptionResult } from '@/types/lyrics';
 import { getApiBaseUrl } from '@/lib/api/config';
+import { getAuthToken } from '@/lib/auth/authStore';
 
 interface SavedProjectsModalProps {
   isOpen: boolean;
@@ -53,6 +57,8 @@ export function SavedProjectsModal({
   const [offlineProjects, setOfflineProjects] = useState<ProjectSummary[]>([]);
   const [cloudProjects, setCloudProjects] = useState<CloudTrackSummary[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [syncSuccessId, setSyncSuccessId] = useState<string | null>(null);
 
   const loadOfflineList = useCallback(async () => {
     setIsLoading(true);
@@ -76,6 +82,52 @@ export function SavedProjectsModal({
       setIsLoading(false);
     }
   }, []);
+
+  const handleSyncToCloud = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setSyncingId(id);
+    try {
+      const fullProject = await getProjectById(id);
+      if (!fullProject || !fullProject.transcription) {
+        alert('Không tìm thấy nội dung bài hát để đồng bộ.');
+        return;
+      }
+
+      const token = getAuthToken();
+      const apiUrl = `${getApiBaseUrl()}/api/tracks/sync`;
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          title: fullProject.title,
+          fileName: fullProject.fileName,
+          detectedLanguage: fullProject.transcription.metadata.detectedLanguage || 'auto',
+          targetLanguage: 'vi',
+          duration: fullProject.transcription.lines.length > 0 
+            ? fullProject.transcription.lines[fullProject.transcription.lines.length - 1].endTime 
+            : 0,
+          lines: fullProject.transcription.lines,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSyncSuccessId(id);
+        setTimeout(() => setSyncSuccessId(null), 3000);
+        await loadCloudList();
+      } else {
+        alert(data.error || 'Đồng bộ lên Cloud thất bại.');
+      }
+    } catch (err) {
+      console.error('Lỗi khi đồng bộ lên cloud:', err);
+      alert('Không thể kết nối đến máy chủ để lưu lên Cloud Database.');
+    } finally {
+      setSyncingId(null);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -258,9 +310,29 @@ export function SavedProjectsModal({
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         type="button"
+                        onClick={(e) => handleSyncToCloud(e, item.id)}
+                        disabled={syncingId === item.id}
+                        className={`p-2 rounded-lg transition-colors flex items-center gap-1 text-xs ${
+                          syncSuccessId === item.id
+                            ? 'text-emerald-400 bg-emerald-500/10'
+                            : 'text-slate-400 hover:text-sky-300 hover:bg-sky-500/10'
+                        }`}
+                        title="Đồng bộ / Lưu bài hát này lên Cloud Database (PostgreSQL Neon)"
+                      >
+                        {syncingId === item.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+                        ) : syncSuccessId === item.id ? (
+                          <Check className="w-4 h-4 text-emerald-400" />
+                        ) : (
+                          <CloudUpload className="w-4 h-4" />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={(e) => handleDeleteOffline(e, item.id)}
                         className="p-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                        title="Xóa bài này"
+                        title="Xóa bài này khỏi bộ nhớ máy"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

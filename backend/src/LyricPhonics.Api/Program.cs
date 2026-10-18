@@ -181,6 +181,9 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tracks' AND column_name='UserId') THEN
         ALTER TABLE tracks ADD COLUMN ""UserId"" UUID;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tracks' AND column_name='TargetLanguage') THEN
+        ALTER TABLE tracks ADD COLUMN ""TargetLanguage"" VARCHAR(50) DEFAULT 'vi';
+    END IF;
 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='api_keys' AND column_name='IsActive') THEN
         ALTER TABLE api_keys ADD COLUMN ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE;

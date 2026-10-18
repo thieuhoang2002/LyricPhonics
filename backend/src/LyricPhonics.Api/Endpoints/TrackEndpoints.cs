@@ -144,6 +144,66 @@ public static class TrackEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .WithSummary("Xóa bài hát khỏi cơ sở dữ liệu");
 
+        // 4. Đồng bộ bài hát từ Client/Offline lên PostgreSQL Database
+        group.MapPost("/sync", async (
+            TrackSyncDto request,
+            HttpContext context,
+            IServiceProvider serviceProvider,
+            CancellationToken cancellationToken) =>
+        {
+            var repository = serviceProvider.GetService<ITrackRepository>();
+            if (repository == null)
+            {
+                return Results.BadRequest(new { success = false, error = "Database chưa được cấu hình." });
+            }
+
+            var authService = serviceProvider.GetRequiredService<IAuthService>();
+            Guid? userId = null;
+            if (context.Request.Headers.TryGetValue("Authorization", out var authHeader))
+            {
+                userId = authService.ValidateToken(authHeader.ToString());
+            }
+
+            Guid trackId = Guid.TryParse(request.Id, out var parsedId) ? parsedId : Guid.NewGuid();
+
+            var track = new TrackEntity
+            {
+                Id = trackId,
+                UserId = userId,
+                Title = !string.IsNullOrWhiteSpace(request.Title) ? request.Title : "Untitled Track",
+                Artist = !string.IsNullOrWhiteSpace(request.Artist) ? request.Artist : "Unknown Artist",
+                FileName = request.FileName ?? string.Empty,
+                DetectedLanguage = request.DetectedLanguage ?? "auto",
+                TargetLanguage = request.TargetLanguage ?? "vi",
+                Duration = request.Duration,
+                LinesJson = JsonSerializer.Serialize(request.Lines ?? new List<LyricLine>()),
+                AudioUrl = request.AudioUrl,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var saved = await repository.SaveTrackAsync(track, cancellationToken);
+            return Results.Ok(new
+            {
+                success = true,
+                message = "Đã đồng bộ bài hát thành công lên Neon PostgreSQL Database!",
+                trackId = saved.Id
+            });
+        })
+        .Produces(StatusCodes.Status200OK)
+        .WithSummary("Đồng bộ bài hát từ Offline lên Neon PostgreSQL");
+
         return app;
     }
 }
+
+public record TrackSyncDto(
+    string? Id,
+    string Title,
+    string? Artist,
+    string? FileName,
+    string? DetectedLanguage,
+    string? TargetLanguage,
+    double Duration,
+    List<LyricLine>? Lines,
+    string? AudioUrl = null
+);
