@@ -217,16 +217,18 @@ export function AuthModal({
             </div>
           )}
 
-          {/* Cloudflare Turnstile anti-bot widget */}
-          <TurnstileWidget
-            onVerify={(token) => setTurnstileToken(token)}
-            onError={() => setErrorMessage('Xác thực Cloudflare Turnstile thất bại.')}
-            onExpire={() => setTurnstileToken('')}
-          />
+          {/* Cloudflare Turnstile anti-bot widget chỉ hiển thị khi đăng ký tài khoản */}
+          {mode === 'register' && (
+            <TurnstileWidget
+              onVerify={(token) => setTurnstileToken(token)}
+              onError={() => setErrorMessage('Xác thực Cloudflare Turnstile thất bại.')}
+              onExpire={() => setTurnstileToken('')}
+            />
+          )}
 
           <button
             type="submit"
-            disabled={loading || !turnstileToken}
+            disabled={loading || (mode === 'register' && !turnstileToken)}
             className="w-full py-2.5 rounded-xl bg-[#2836f7] hover:bg-[#424ef5] text-white font-medium text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#2836f7]/25 transition-colors disabled:opacity-50"
           >
             {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}

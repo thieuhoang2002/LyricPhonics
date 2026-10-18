@@ -33,6 +33,24 @@ public class AuthService : IAuthService
         _logger = logger;
     }
 
+    private string GetAdminEmail()
+    {
+        string? email = Environment.GetEnvironmentVariable("ADMIN_EMAIL");
+        if (string.IsNullOrWhiteSpace(email)) email = _configuration["Admin:Email"];
+        if (string.IsNullOrWhiteSpace(email)) email = _configuration["AdminConfig:Email"];
+        if (string.IsNullOrWhiteSpace(email)) email = "admin@example.com";
+        return email.Trim();
+    }
+
+    private string GetAdminPassword()
+    {
+        string? pass = Environment.GetEnvironmentVariable("ADMIN_PASSWORD");
+        if (string.IsNullOrWhiteSpace(pass)) pass = _configuration["Admin:Password"];
+        if (string.IsNullOrWhiteSpace(pass)) pass = _configuration["AdminConfig:Password"];
+        if (string.IsNullOrWhiteSpace(pass)) pass = "AdminSecurePass_ChangeMe_2026!";
+        return pass.Trim();
+    }
+
     public async Task<AuthResult> RegisterAsync(
         RegisterRequest request,
         string clientIp,
@@ -41,6 +59,12 @@ public class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
         {
             return new AuthResult(false, null, "Email và mật khẩu không được để trống.");
+        }
+
+        string adminEmail = GetAdminEmail();
+        if (string.Equals(request.Email.Trim(), adminEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            return new AuthResult(false, null, "Email này dành riêng cho Quản trị viên hệ thống. Vui lòng sử dụng tính năng Đăng nhập.");
         }
 
         if (request.Password.Length < 6)
@@ -113,7 +137,66 @@ public class AuthService : IAuthService
             return new AuthResult(false, null, "Email và mật khẩu không được để trống.");
         }
 
-        var user = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
+        string adminEmail = GetAdminEmail();
+        string adminPassword = GetAdminPassword();
+        bool isAdminAttempt = string.Equals(request.Email.Trim(), adminEmail, StringComparison.OrdinalIgnoreCase);
+
+        var user = await _userRepository.GetByEmailAsync(request.Email.Trim(), cancellationToken);
+
+        // Trường hợp đăng nhập tài khoản SuperAdmin
+        if (isAdminAttempt)
+        {
+            bool isAdminPasswordCorrect = request.Password.Trim() == adminPassword ||
+                (user != null && !string.IsNullOrWhiteSpace(user.PasswordHash) &&
+                 user.PasswordHash != "MILITARY_2LAYER_PROTECTED" &&
+                 PasswordHasher.VerifyPassword(request.Password, user.PasswordHash));
+
+            if (!isAdminPasswordCorrect)
+            {
+                return new AuthResult(false, null, "Email hoặc mật khẩu không chính xác.");
+            }
+
+            // Nếu user chưa tồn tại trong bảng Users, tạo mới
+            if (user == null)
+            {
+                user = new UserEntity
+                {
+                    Email = adminEmail.ToLowerInvariant(),
+                    PasswordHash = PasswordHasher.HashPassword(request.Password.Trim()),
+                    RegistrationIp = "SuperAdmin Login",
+                    SongCredits = 999999,
+                    TotalSongsCreated = 0,
+                    IsAdmin = true,
+                    CreatedAt = DateTime.UtcNow,
+                    LastLoginAt = DateTime.UtcNow
+                };
+                user = await _userRepository.CreateUserAsync(user, cancellationToken);
+            }
+            else
+            {
+                // Đồng bộ quyền SuperAdmin, lượt vô hạn và cập nhật password hash
+                user.IsAdmin = true;
+                if (user.SongCredits < 1000) user.SongCredits = 999999;
+                user.PasswordHash = PasswordHasher.HashPassword(request.Password.Trim());
+                user.LastLoginAt = DateTime.UtcNow;
+                await _userRepository.UpdateUserAsync(user, cancellationToken);
+            }
+
+            string adminToken = GenerateJwtToken(user);
+            _logger.LogInformation("SuperAdmin đã đăng nhập thành công từ modal trang chủ: {Email}", user.Email);
+
+            return new AuthResult(
+                Success: true,
+                Token: adminToken,
+                Message: "Đăng nhập thành công với quyền Quản trị viên tối cao (SuperAdmin).",
+                UserId: user.Id,
+                Email: user.Email,
+                SongCredits: user.SongCredits,
+                IsAdmin: true
+            );
+        }
+
+        // Người dùng thông thường
         if (user == null)
         {
             return new AuthResult(false, null, "Email hoặc mật khẩu không chính xác.");
