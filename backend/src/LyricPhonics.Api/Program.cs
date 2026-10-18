@@ -130,23 +130,33 @@ CREATE TABLE IF NOT EXISTS users (
     ""LastLoginAt"" TIMESTAMP WITH TIME ZONE
 );
 
-CREATE TABLE IF NOT EXISTS pricing_tiers (
-    ""Id"" UUID PRIMARY KEY,
-    ""Name"" VARCHAR(100) NOT NULL,
-    ""PriceUsd"" NUMERIC(10,2) NOT NULL,
-    ""SongCount"" INT NOT NULL,
-    ""DiscountPercent"" INT NOT NULL DEFAULT 0,
-    ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
-    ""CreatedAt"" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
 CREATE TABLE IF NOT EXISTS api_keys (
     ""Id"" UUID PRIMARY KEY,
     ""Provider"" VARCHAR(50) NOT NULL,
     ""KeyValue"" TEXT NOT NULL,
     ""Status"" VARCHAR(50) NOT NULL DEFAULT 'Healthy',
-    ""LatencyMs"" INT NOT NULL DEFAULT 0,
+    ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+    ""LatencyMs"" BIGINT,
     ""LastCheckedAt"" TIMESTAMP WITH TIME ZONE,
+    ""CreatedAt"" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pricing_tiers' AND column_name='Id' AND data_type='uuid') THEN
+        DROP TABLE pricing_tiers CASCADE;
+    END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS pricing_tiers (
+    ""Id"" VARCHAR(50) PRIMARY KEY,
+    ""Name"" VARCHAR(100) NOT NULL,
+    ""PriceUsd"" NUMERIC(10,2) NOT NULL,
+    ""SongCount"" INT NOT NULL,
+    ""DiscountPercent"" INT NOT NULL DEFAULT 0,
+    ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+    ""SortOrder"" INT NOT NULL DEFAULT 0,
+    ""FeaturesJson"" TEXT DEFAULT '[]',
     ""CreatedAt"" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -170,6 +180,16 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tracks' AND column_name='UserId') THEN
         ALTER TABLE tracks ADD COLUMN ""UserId"" UUID;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='api_keys' AND column_name='IsActive') THEN
+        ALTER TABLE api_keys ADD COLUMN ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pricing_tiers' AND column_name='SortOrder') THEN
+        ALTER TABLE pricing_tiers ADD COLUMN ""SortOrder"" INT NOT NULL DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pricing_tiers' AND column_name='FeaturesJson') THEN
+        ALTER TABLE pricing_tiers ADD COLUMN ""FeaturesJson"" TEXT DEFAULT '[]';
     END IF;
 END $$;
 ";

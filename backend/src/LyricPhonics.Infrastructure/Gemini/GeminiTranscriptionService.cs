@@ -26,6 +26,7 @@ public class GeminiTranscriptionService : ITranscriptionService
 {
     private readonly HttpClient _httpClient;
     private readonly GeminiOptions _options;
+    private readonly IApiKeyPoolService? _apiKeyPoolService;
     private readonly ILogger<GeminiTranscriptionService> _logger;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -36,11 +37,13 @@ public class GeminiTranscriptionService : ITranscriptionService
     public GeminiTranscriptionService(
         HttpClient httpClient,
         IOptions<GeminiOptions> options,
-        ILogger<GeminiTranscriptionService> logger)
+        ILogger<GeminiTranscriptionService> logger,
+        IApiKeyPoolService? apiKeyPoolService = null)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _apiKeyPoolService = apiKeyPoolService;
     }
 
     public async Task<TranscriptionResult> TranscribeAudioAsync(
@@ -55,7 +58,15 @@ public class GeminiTranscriptionService : ITranscriptionService
             throw new ArgumentException("Luồng dữ liệu âm thanh không hợp lệ hoặc rỗng.", nameof(audioStream));
         }
 
-        string apiKey = _options.ApiKey;
+        string apiKey = string.Empty;
+        if (_apiKeyPoolService != null)
+        {
+            apiKey = await _apiKeyPoolService.GetGeminiApiKeyAsync(cancellationToken);
+        }
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            apiKey = _options.ApiKey;
+        }
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? string.Empty;

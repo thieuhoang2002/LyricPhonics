@@ -24,6 +24,7 @@ public interface IAdminService
     Task<ApiKeyEntity> AddApiKeyAsync(CreateApiKeyRequest request, CancellationToken cancellationToken = default);
     Task<bool> DeleteApiKeyAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ApiKeyEntity> CheckApiKeyHealthAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ApiKeyEntity?> ToggleApiKeyStatusAsync(Guid id, CancellationToken cancellationToken = default);
 
     // Quản lý gói thanh toán / Pricing Tiers
     Task<List<PricingTierEntity>> GetPricingTiersAsync(CancellationToken cancellationToken = default);

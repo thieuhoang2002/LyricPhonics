@@ -97,6 +97,7 @@ public static class DependencyInjection
 
         services.AddScoped<ITrackRepository, TrackRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IApiKeyPoolService, ApiKeyPoolService>();
 
         // 4. Đăng ký PhonicsRegenerationService (Groq AI & Gemini Fallback)
         services.AddHttpClient<IPhonicsRegenerationService, PhonicsRegenerationService>(client =>

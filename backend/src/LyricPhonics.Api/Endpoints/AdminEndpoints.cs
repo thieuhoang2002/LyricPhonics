@@ -128,6 +128,18 @@ public static class AdminEndpoints
         .WithName("AdminCheckApiKeyHealth")
         .WithSummary("Kiểm tra sức khỏe (Health Check Ping) API Key Gemini/Groq");
 
+        group.MapPost("/api-keys/{id:guid}/toggle", async (
+            Guid id,
+            IAdminService adminService,
+            CancellationToken cancellationToken) =>
+        {
+            var key = await adminService.ToggleApiKeyStatusAsync(id, cancellationToken);
+            if (key == null) return Results.NotFound();
+            return Results.Ok(key);
+        })
+        .WithName("AdminToggleApiKey")
+        .WithSummary("Bật hoặc Tắt trạng thái kích hoạt của API Key");
+
         // Quản lý Pricing Tiers
         group.MapGet("/pricing", async (
             IAdminService adminService,

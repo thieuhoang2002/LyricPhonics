@@ -18,6 +18,7 @@ public class PhonicsRegenerationService : IPhonicsRegenerationService
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
     private readonly GeminiOptions _geminiOptions;
+    private readonly IApiKeyPoolService? _apiKeyPoolService;
     private readonly ILogger<PhonicsRegenerationService> _logger;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -29,12 +30,14 @@ public class PhonicsRegenerationService : IPhonicsRegenerationService
         HttpClient httpClient,
         IConfiguration configuration,
         IOptions<GeminiOptions> geminiOptions,
-        ILogger<PhonicsRegenerationService> logger)
+        ILogger<PhonicsRegenerationService> logger,
+        IApiKeyPoolService? apiKeyPoolService = null)
     {
         _httpClient = httpClient;
         _configuration = configuration;
         _geminiOptions = geminiOptions.Value;
         _logger = logger;
+        _apiKeyPoolService = apiKeyPoolService;
     }
 
     public async Task<RegeneratedPhonicsResult> RegenerateLinePhonicsAsync(
@@ -48,9 +51,17 @@ public class PhonicsRegenerationService : IPhonicsRegenerationService
         }
 
         string targetLang = string.IsNullOrWhiteSpace(language) ? "vi" : language;
-        string groqApiKey = _configuration["Groq:ApiKey"] 
-            ?? Environment.GetEnvironmentVariable("GROQ_API_KEY") 
-            ?? string.Empty;
+        string groqApiKey = string.Empty;
+        if (_apiKeyPoolService != null)
+        {
+            groqApiKey = await _apiKeyPoolService.GetGroqApiKeyAsync(cancellationToken);
+        }
+        if (string.IsNullOrWhiteSpace(groqApiKey))
+        {
+            groqApiKey = _configuration["Groq:ApiKey"] 
+                ?? Environment.GetEnvironmentVariable("GROQ_API_KEY") 
+                ?? string.Empty;
+        }
 
         string groqModel = _configuration["Groq:Model"] ?? "qwen/qwen3.8-27b";
 
@@ -156,7 +167,15 @@ Return ONLY valid JSON:
         string targetLang,
         CancellationToken cancellationToken)
     {
-        string apiKey = _geminiOptions.ApiKey;
+        string apiKey = string.Empty;
+        if (_apiKeyPoolService != null)
+        {
+            apiKey = await _apiKeyPoolService.GetGeminiApiKeyAsync(cancellationToken);
+        }
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            apiKey = _geminiOptions.ApiKey;
+        }
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? string.Empty;

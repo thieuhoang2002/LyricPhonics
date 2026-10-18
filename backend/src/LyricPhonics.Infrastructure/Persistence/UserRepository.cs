@@ -66,7 +66,8 @@ public class UserRepository : IUserRepository
         }
 
         return await query
-            .OrderByDescending(u => u.CreatedAt)
+            .OrderByDescending(u => u.IsAdmin)
+            .ThenByDescending(u => u.CreatedAt)
             .ToListAsync(cancellationToken);
     }
 

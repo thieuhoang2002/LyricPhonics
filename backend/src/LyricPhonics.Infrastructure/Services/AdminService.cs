@@ -239,6 +239,46 @@ CREATE TABLE IF NOT EXISTS admin_securities (
 
     public async Task<List<UserEntity>> GetUsersAsync(string? search = null, CancellationToken cancellationToken = default)
     {
+        // 1. Tự động đồng bộ tài khoản SuperAdmin vào bảng Users nếu chưa có
+        string adminEmail = GetAdminEmail();
+        if (!string.IsNullOrWhiteSpace(adminEmail))
+        {
+            try
+            {
+                var existingAdmin = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == adminEmail.ToLower(), cancellationToken);
+                if (existingAdmin == null)
+                {
+                    int songCount = 0;
+                    try { songCount = await _dbContext.Tracks.CountAsync(cancellationToken); } catch { }
+
+                    var adminUser = new UserEntity
+                    {
+                        Id = Guid.NewGuid(),
+                        Email = adminEmail.ToLower(),
+                        PasswordHash = "MILITARY_2LAYER_PROTECTED",
+                        RegistrationIp = "System SuperAdmin",
+                        SongCredits = 999999, // Vô hạn lượt cho Admin
+                        TotalSongsCreated = songCount,
+                        IsAdmin = true,
+                        CreatedAt = DateTime.UtcNow,
+                        LastLoginAt = DateTime.UtcNow
+                    };
+                    await _dbContext.Users.AddAsync(adminUser, cancellationToken);
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                }
+                else if (!existingAdmin.IsAdmin || existingAdmin.SongCredits < 1000)
+                {
+                    existingAdmin.IsAdmin = true;
+                    existingAdmin.SongCredits = 999999;
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Không thể tự động đồng bộ tài khoản SuperAdmin vào bảng Users.");
+            }
+        }
+
         return await _userRepository.GetAllUsersAsync(search, cancellationToken);
     }
 
@@ -249,27 +289,57 @@ CREATE TABLE IF NOT EXISTS admin_securities (
 
     public async Task<List<ApiKeyEntity>> GetApiKeysAsync(CancellationToken cancellationToken = default)
     {
-        var keys = await _dbContext.ApiKeys.OrderByDescending(k => k.CreatedAt).ToListAsync(cancellationToken);
-        if (keys.Count == 0)
+        try
         {
-            // Seed API key ban đầu từ appsettings nếu chưa có
-            string geminiKey = _configuration["Gemini:ApiKey"] ?? string.Empty;
-            string groqKey = _configuration["Groq:ApiKey"] ?? string.Empty;
+            // 1. Tự động đồng bộ các API Key từ biến môi trường vào DB nếu chưa có
+            string? envGeminiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+            if (string.IsNullOrWhiteSpace(envGeminiKey)) envGeminiKey = _configuration["Gemini:ApiKey"];
 
-            if (!string.IsNullOrWhiteSpace(geminiKey))
+            string? envGroqKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
+            if (string.IsNullOrWhiteSpace(envGroqKey)) envGroqKey = _configuration["Groq:ApiKey"];
+
+            if (!string.IsNullOrWhiteSpace(envGeminiKey))
             {
-                var k = new ApiKeyEntity { Provider = "gemini", KeyValue = geminiKey, Status = "Healthy" };
-                await _dbContext.ApiKeys.AddAsync(k, cancellationToken);
+                bool exists = await _dbContext.ApiKeys.AnyAsync(k => k.Provider == "gemini" && k.KeyValue == envGeminiKey.Trim(), cancellationToken);
+                if (!exists)
+                {
+                    await _dbContext.ApiKeys.AddAsync(new ApiKeyEntity
+                    {
+                        Id = Guid.NewGuid(),
+                        Provider = "gemini",
+                        KeyValue = envGeminiKey.Trim(),
+                        Status = "Healthy",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    }, cancellationToken);
+                }
             }
-            if (!string.IsNullOrWhiteSpace(groqKey))
+
+            if (!string.IsNullOrWhiteSpace(envGroqKey))
             {
-                var k = new ApiKeyEntity { Provider = "groq", KeyValue = groqKey, Status = "Healthy" };
-                await _dbContext.ApiKeys.AddAsync(k, cancellationToken);
+                bool exists = await _dbContext.ApiKeys.AnyAsync(k => k.Provider == "groq" && k.KeyValue == envGroqKey.Trim(), cancellationToken);
+                if (!exists)
+                {
+                    await _dbContext.ApiKeys.AddAsync(new ApiKeyEntity
+                    {
+                        Id = Guid.NewGuid(),
+                        Provider = "groq",
+                        KeyValue = envGroqKey.Trim(),
+                        Status = "Healthy",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    }, cancellationToken);
+                }
             }
+
             await _dbContext.SaveChangesAsync(cancellationToken);
-            keys = await _dbContext.ApiKeys.OrderByDescending(k => k.CreatedAt).ToListAsync(cancellationToken);
         }
-        return keys;
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Lỗi khi đồng bộ API keys từ biến môi trường.");
+        }
+
+        return await _dbContext.ApiKeys.OrderByDescending(k => k.CreatedAt).ToListAsync(cancellationToken);
     }
 
     public async Task<ApiKeyEntity> AddApiKeyAsync(CreateApiKeyRequest request, CancellationToken cancellationToken = default)
@@ -338,22 +408,89 @@ CREATE TABLE IF NOT EXISTS admin_securities (
         return key;
     }
 
+    public async Task<ApiKeyEntity?> ToggleApiKeyStatusAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var key = await _dbContext.ApiKeys.FindAsync(new object[] { id }, cancellationToken);
+        if (key == null) return null;
+        key.IsActive = !key.IsActive;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return key;
+    }
+
     public async Task<List<PricingTierEntity>> GetPricingTiersAsync(CancellationToken cancellationToken = default)
     {
-        var tiers = await _dbContext.PricingTiers.OrderBy(p => p.SortOrder).ToListAsync(cancellationToken);
-        if (tiers.Count == 0)
+        try
         {
-            // Tự động seed 3 gói ban đầu ($3, $6, $15)
-            tiers = new List<PricingTierEntity>
+            var tiers = await _dbContext.PricingTiers.OrderBy(p => p.SortOrder).ToListAsync(cancellationToken);
+            if (tiers.Count == 0)
             {
-                new() { Id = "starter", Name = "Starter Pack", PriceUsd = 3.00m, SongCount = 10, DiscountPercent = 0, SortOrder = 1, FeaturesJson = "[\"10 bài hát đầy đủ 4 tầng phiên âm\", \"Hỗ trợ 5 ngôn ngữ quốc tế\", \"Xuất file LRC & TXT\"]" },
-                new() { Id = "pro", Name = "Pro Musician", PriceUsd = 6.00m, SongCount = 25, DiscountPercent = 20, SortOrder = 2, FeaturesJson = "[\"25 bài hát chuẩn phòng thu\", \"Ưu tiên xử lý tốc độ cao\", \"Tự động sửa và đổi giọng AI\", \"Hỗ trợ đa ngôn ngữ không giới hạn\"]" },
-                new() { Id = "studio", Name = "Studio Unlimited", PriceUsd = 15.00m, SongCount = 70, DiscountPercent = 30, SortOrder = 3, FeaturesJson = "[\"70 bài hát bóc tách lời cover\", \"Tốc độ xử lý siêu tốc LPU Groq\", \"Lưu trữ Cloud PostgreSQL trọn đời\", \"Hỗ trợ kỹ thuật 24/7\"]" }
-            };
-            await _dbContext.PricingTiers.AddRangeAsync(tiers, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+                tiers = GetDefaultPricingTiers();
+                await _dbContext.PricingTiers.AddRangeAsync(tiers, cancellationToken);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            return tiers;
         }
-        return tiers;
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Bảng pricing_tiers bị lỗi schema hoặc chưa tồn tại. Đang tự động sửa schema...");
+            try
+            {
+                const string fixSql = @"
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pricing_tiers' AND column_name='Id' AND data_type='uuid') THEN
+        DROP TABLE pricing_tiers CASCADE;
+    END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS pricing_tiers (
+    ""Id"" VARCHAR(50) PRIMARY KEY,
+    ""Name"" VARCHAR(100) NOT NULL,
+    ""PriceUsd"" NUMERIC(10,2) NOT NULL,
+    ""SongCount"" INT NOT NULL,
+    ""DiscountPercent"" INT NOT NULL DEFAULT 0,
+    ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+    ""SortOrder"" INT NOT NULL DEFAULT 0,
+    ""FeaturesJson"" TEXT DEFAULT '[]',
+    ""CreatedAt"" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pricing_tiers' AND column_name='SortOrder') THEN
+        ALTER TABLE pricing_tiers ADD COLUMN ""SortOrder"" INT NOT NULL DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pricing_tiers' AND column_name='FeaturesJson') THEN
+        ALTER TABLE pricing_tiers ADD COLUMN ""FeaturesJson"" TEXT DEFAULT '[]';
+    END IF;
+END $$;
+";
+                await _dbContext.Database.ExecuteSqlRawAsync(fixSql, cancellationToken);
+                var tiers = await _dbContext.PricingTiers.OrderBy(p => p.SortOrder).ToListAsync(cancellationToken);
+                if (tiers.Count == 0)
+                {
+                    tiers = GetDefaultPricingTiers();
+                    await _dbContext.PricingTiers.AddRangeAsync(tiers, cancellationToken);
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                }
+                return tiers;
+            }
+            catch (Exception innerEx)
+            {
+                _logger.LogError(innerEx, "Không thể khôi phục bảng pricing_tiers trong DB. Trả về in-memory defaults.");
+                return GetDefaultPricingTiers();
+            }
+        }
+    }
+
+    private static List<PricingTierEntity> GetDefaultPricingTiers()
+    {
+        return new List<PricingTierEntity>
+        {
+            new() { Id = "starter", Name = "Starter Pack", PriceUsd = 3.00m, SongCount = 10, DiscountPercent = 0, SortOrder = 1, FeaturesJson = "[\"10 bài hát đầy đủ 4 tầng phiên âm\", \"Hỗ trợ 5 ngôn ngữ quốc tế\", \"Xuất file LRC & TXT\"]" },
+            new() { Id = "pro", Name = "Pro Musician", PriceUsd = 6.00m, SongCount = 25, DiscountPercent = 20, SortOrder = 2, FeaturesJson = "[\"25 bài hát chuẩn phòng thu\", \"Ưu tiên xử lý tốc độ cao\", \"Tự động sửa và đổi giọng AI\", \"Hỗ trợ đa ngôn ngữ không giới hạn\"]" },
+            new() { Id = "studio", Name = "Studio Unlimited", PriceUsd = 15.00m, SongCount = 70, DiscountPercent = 30, SortOrder = 3, FeaturesJson = "[\"70 bài hát bóc tách lời cover\", \"Tốc độ xử lý siêu tốc LPU Groq\", \"Lưu trữ Cloud PostgreSQL trọn đời\", \"Hỗ trợ kỹ thuật 24/7\"]" }
+        };
     }
 
     public async Task<PricingTierEntity> UpdatePricingTierAsync(string id, UpdatePricingTierRequest request, CancellationToken cancellationToken = default)

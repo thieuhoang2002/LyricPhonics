@@ -78,6 +78,17 @@ export default function AdminUniversePage(): React.JSX.Element {
   const [newKeyProvider, setNewKeyProvider] = useState('gemini');
   const [newKeyValue, setNewKeyValue] = useState('');
 
+  // New Pricing Tier modal & form
+  const [showAddTierModal, setShowAddTierModal] = useState(false);
+  const [newTier, setNewTier] = useState({
+    id: '',
+    name: '',
+    priceUsd: 5.0,
+    songCount: 20,
+    discountPercent: 0,
+    sortOrder: 1,
+  });
+
   // Check stored admin token
   useEffect(() => {
     const saved = sessionStorage.getItem('lyricphonics_admin_token');
@@ -253,6 +264,80 @@ export default function AdminUniversePage(): React.JSX.Element {
       if (res.ok) {
         setApiKeys((prev) => prev.filter((k) => k.id !== keyId));
         showNotice('Đã xóa API Key.');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Toggle API Key active status
+  const handleToggleApiKey = async (keyId: string) => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/admin/api-keys/${keyId}/toggle`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setApiKeys((prev) => prev.map((k) => (k.id === keyId ? updated : k)));
+        showNotice(`Đã ${updated.isActive ? 'bật' : 'tắt'} API Key.`);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Create New Pricing Tier
+  const handleCreateTier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTier.id.trim() || !newTier.name.trim()) return;
+
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/admin/pricing`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: newTier.id.trim().toLowerCase(),
+          name: newTier.name.trim(),
+          priceUsd: Number(newTier.priceUsd),
+          songCount: Number(newTier.songCount),
+          discountPercent: Number(newTier.discountPercent),
+          isActive: true,
+          sortOrder: Number(newTier.sortOrder),
+        }),
+      });
+
+      if (res.ok) {
+        const created = await res.json();
+        setPricingTiers((prev) => [...prev, created]);
+        setShowAddTierModal(false);
+        setNewTier({
+          id: '',
+          name: '',
+          priceUsd: 5.0,
+          songCount: 20,
+          discountPercent: 0,
+          sortOrder: pricingTiers.length + 1,
+        });
+        showNotice('Đã thêm gói mua lượt mới thành công!');
+      } else {
+        showNotice('Không thể tạo gói (Mã gói có thể đã tồn tại).');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Delete Pricing Tier
+  const handleDeleteTier = async (tierId: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn xóa gói [${tierId}] này?`)) return;
+
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/admin/pricing/${tierId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setPricingTiers((prev) => prev.filter((t) => t.id !== tierId));
+        showNotice(`Đã xóa gói [${tierId}].`);
       }
     } catch (err) {
       console.error(err);
@@ -532,19 +617,30 @@ export default function AdminUniversePage(): React.JSX.Element {
                     </tr>
                   ) : (
                     users.map((u) => (
-                      <tr key={u.id} className="hover:bg-[#1a1a1d] transition-colors">
-                        <td className="p-3.5 font-medium text-white">{u.email}</td>
+                      <tr key={u.id} className={`transition-colors ${u.isAdmin ? 'bg-amber-500/5 hover:bg-amber-500/10' : 'hover:bg-[#1a1a1d]'}`}>
+                        <td className="p-3.5 font-medium text-white">
+                          <div className="flex items-center gap-2">
+                            <span>{u.email}</span>
+                            {u.isAdmin && (
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30 font-semibold flex items-center gap-1 shadow-sm">
+                                👑 SuperAdmin
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="p-3.5 font-mono text-zinc-400">{u.registrationIp || 'Localhost'}</td>
                         <td className="p-3.5 text-zinc-300">{u.totalSongsCreated} bài</td>
                         <td className="p-3.5 text-center">
                           <span
                             className={`font-bold px-2.5 py-1 rounded-full text-xs ${
-                              u.songCredits > 0
+                              u.isAdmin
+                                ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                : u.songCredits > 0
                                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                 : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                             }`}
                           >
-                            {u.songCredits} lượt
+                            {u.isAdmin ? '∞ (Vô hạn)' : `${u.songCredits} lượt`}
                           </span>
                         </td>
                         <td className="p-3.5 text-right">
@@ -595,6 +691,18 @@ export default function AdminUniversePage(): React.JSX.Element {
         {/* ----------------- TAB 2: API KEYS & HEALTH CHECK ----------------- */}
         {activeTab === 'keys' && (
           <div className="space-y-6">
+            {/* AI Pool Info Banner */}
+            <div className="p-4 rounded-2xl bg-[#161618] border border-[#222224] flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#2836f7]/20 border border-[#2836f7]/30 flex items-center justify-center text-[#424ef5] shrink-0 mt-0.5">
+                <Cpu className="w-4 h-4" />
+              </div>
+              <div className="text-xs text-zinc-300 leading-relaxed">
+                <div className="font-semibold text-white mb-0.5">Cơ chế AI Key Pooling & Fallback tự động</div>
+                Tất cả API Key ở đây được lưu trữ trong Neon PostgreSQL và liên kết trực tiếp vào <b>AI Key Pool</b> của Backend (.NET 8).
+                Hệ thống tự động xoay vòng Round-Robin qua các key Healthy, và tự động Fallback về biến môi trường (<code>GEMINI_API_KEY</code>, <code>GROQ_API_KEY</code>) nếu các key trong pool cạn kiệt hoặc gặp lỗi 429 RateLimit.
+              </div>
+            </div>
+
             {/* Add Key Form */}
             <form onSubmit={handleAddApiKey} className="p-4 rounded-2xl bg-[#161618] border border-[#222224] flex flex-col sm:flex-row items-center gap-3">
               <select
@@ -631,55 +739,76 @@ export default function AdminUniversePage(): React.JSX.Element {
                   <tr>
                     <th className="p-3.5">Provider</th>
                     <th className="p-3.5">Key Value</th>
-                    <th className="p-3.5">Trạng Thái Sức Khỏe</th>
+                    <th className="p-3.5">Trạng Thái Pool</th>
+                    <th className="p-3.5">Sức Khỏe</th>
                     <th className="p-3.5">Độ Trễ (Latency)</th>
                     <th className="p-3.5 text-right">Thao Tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#222224]">
-                  {apiKeys.map((k) => (
-                    <tr key={k.id} className="hover:bg-[#1a1a1d] transition-colors">
-                      <td className="p-3.5 font-bold uppercase text-white">{k.provider}</td>
-                      <td className="p-3.5 font-mono text-zinc-400">
-                        {k.keyValue.length > 16 ? `${k.keyValue.slice(0, 8)}...${k.keyValue.slice(-6)}` : k.keyValue}
-                      </td>
-                      <td className="p-3.5">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium ${
-                            k.status === 'Healthy'
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : k.status === 'RateLimited'
-                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                          }`}
-                        >
-                          {k.status}
-                        </span>
-                      </td>
-                      <td className="p-3.5 font-mono text-zinc-300">
-                        {k.latencyMs != null ? `${k.latencyMs} ms` : 'Chưa test'}
-                      </td>
-                      <td className="p-3.5 text-right">
-                        <div className="inline-flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleCheckKeyHealth(k.id)}
-                            className="px-2.5 py-1 rounded bg-[#222224] hover:bg-emerald-600 hover:text-white text-zinc-300 font-medium transition-colors"
-                          >
-                            Health Check
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteApiKey(k.id)}
-                            className="p-1.5 rounded text-rose-400 hover:bg-rose-500/10 transition-colors"
-                            title="Xóa key"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                  {apiKeys.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-6 text-center text-zinc-500">
+                        Chưa có API Key nào trong Database pool. Hệ thống đang chạy bằng biến môi trường (Environment Variables).
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    apiKeys.map((k) => (
+                      <tr key={k.id} className="hover:bg-[#1a1a1d] transition-colors">
+                        <td className="p-3.5 font-bold uppercase text-white">{k.provider}</td>
+                        <td className="p-3.5 font-mono text-zinc-400">
+                          {k.keyValue.length > 16 ? `${k.keyValue.slice(0, 8)}...${k.keyValue.slice(-6)}` : k.keyValue}
+                        </td>
+                        <td className="p-3.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleApiKey(k.id)}
+                            className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
+                              k.isActive ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700'
+                            }`}
+                            title="Bật/Tắt key này khỏi AI pool"
+                          >
+                            {k.isActive ? 'Đang Bật' : 'Đang Tắt'}
+                          </button>
+                        </td>
+                        <td className="p-3.5">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium ${
+                              k.status === 'Healthy'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : k.status === 'RateLimited'
+                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                            }`}
+                          >
+                            {k.status}
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-mono text-zinc-300">
+                          {k.latencyMs != null ? `${k.latencyMs} ms` : 'Chưa test'}
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleCheckKeyHealth(k.id)}
+                              className="px-2.5 py-1 rounded bg-[#222224] hover:bg-emerald-600 hover:text-white text-zinc-300 font-medium transition-colors"
+                            >
+                              Health Check
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteApiKey(k.id)}
+                              className="p-1.5 rounded text-rose-400 hover:bg-rose-500/10 transition-colors"
+                              title="Xóa key"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -688,92 +817,274 @@ export default function AdminUniversePage(): React.JSX.Element {
 
         {/* ----------------- TAB 3: PRICING TIERS ----------------- */}
         {activeTab === 'pricing' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {pricingTiers.map((t) => (
-                <div key={t.id} className="p-5 rounded-2xl bg-[#161618] border border-[#222224] space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-sm">{t.name}</span>
-                    <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#222224] text-zinc-300 uppercase">
-                      {t.id}
-                    </span>
+          <div className="space-y-6">
+            {/* Header Action Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-[#161618] border border-[#222224]">
+              <div>
+                <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                  Quản lý Gói Mua Lượt ({pricingTiers.length})
+                </h2>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Tùy chỉnh giá, số lượng bài hát, % giảm giá khuyến mãi (Sale), bật/ẩn và xóa gói trực tiếp.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddTierModal(true)}
+                  className="px-4 py-2 rounded-xl bg-[#2836f7] hover:bg-[#424ef5] text-white text-xs font-medium flex items-center gap-1.5 transition-colors shadow-md"
+                >
+                  <Plus className="w-4 h-4" />
+                  Thêm Gói Mới
+                </button>
+              </div>
+            </div>
+
+            {/* Modal / Form thêm gói mới */}
+            {showAddTierModal && (
+              <form onSubmit={handleCreateTier} className="p-5 rounded-2xl bg-[#161618] border border-[#2836f7]/40 shadow-xl space-y-4">
+                <div className="flex items-center justify-between border-b border-[#222224] pb-3">
+                  <span className="font-bold text-white text-sm">Thêm Gói Mua Lượt Mới</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddTierModal(false)}
+                    className="text-xs text-zinc-400 hover:text-white"
+                  >
+                    Đóng
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Mã Gói (ID duy nhất, viết thường)</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="ví dụ: pro_plus"
+                      value={newTier.id}
+                      onChange={(e) => setNewTier({ ...newTier, id: e.target.value })}
+                      className="w-full bg-[#111112] border border-[#262629] focus:border-[#2836f7] rounded-xl px-3 py-2 text-xs text-white"
+                    />
                   </div>
 
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Giá ($ USD)</label>
-                      <input
-                        type="number"
-                        step="0.5"
-                        value={t.priceUsd}
-                        onChange={(e) => {
-                          const val = Number.parseFloat(e.target.value);
-                          setPricingTiers((prev) =>
-                            prev.map((item) => (item.id === t.id ? { ...item, priceUsd: val } : item))
-                          );
-                        }}
-                        className="w-full bg-[#111112] border border-[#262629] focus:border-[#2836f7] rounded-xl px-3 py-1.5 text-xs text-white"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Tên Gói Hiển Thị</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="ví dụ: VIP Singer"
+                      value={newTier.name}
+                      onChange={(e) => setNewTier({ ...newTier, name: e.target.value })}
+                      className="w-full bg-[#111112] border border-[#262629] focus:border-[#2836f7] rounded-xl px-3 py-2 text-xs text-white"
+                    />
+                  </div>
 
-                    <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Số bài hát (Song Count)</label>
-                      <input
-                        type="number"
-                        value={t.songCount}
-                        onChange={(e) => {
-                          const val = Number.parseInt(e.target.value, 10);
-                          setPricingTiers((prev) =>
-                            prev.map((item) => (item.id === t.id ? { ...item, songCount: val } : item))
-                          );
-                        }}
-                        className="w-full bg-[#111112] border border-[#262629] focus:border-[#2836f7] rounded-xl px-3 py-1.5 text-xs text-white"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Giá ($ USD)</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      required
+                      value={newTier.priceUsd}
+                      onChange={(e) => setNewTier({ ...newTier, priceUsd: Number(e.target.value) })}
+                      className="w-full bg-[#111112] border border-[#262629] focus:border-[#2836f7] rounded-xl px-3 py-2 text-xs text-white"
+                    />
+                  </div>
 
-                    <div>
-                      <label className="block text-[11px] text-zinc-400 mb-1">Giảm giá (% Sale)</label>
-                      <input
-                        type="number"
-                        value={t.discountPercent}
-                        onChange={(e) => {
-                          const val = Number.parseInt(e.target.value, 10);
-                          setPricingTiers((prev) =>
-                            prev.map((item) => (item.id === t.id ? { ...item, discountPercent: val } : item))
-                          );
-                        }}
-                        className="w-full bg-[#111112] border border-[#262629] focus:border-[#2836f7] rounded-xl px-3 py-1.5 text-xs text-white"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Số Bài Hát (Song Count)</label>
+                    <input
+                      type="number"
+                      required
+                      value={newTier.songCount}
+                      onChange={(e) => setNewTier({ ...newTier, songCount: Number(e.target.value) })}
+                      className="w-full bg-[#111112] border border-[#262629] focus:border-[#2836f7] rounded-xl px-3 py-2 text-xs text-white"
+                    />
+                  </div>
 
-                    <div className="flex items-center justify-between pt-2">
-                      <span className="text-xs text-zinc-300">Hiển thị gói:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPricingTiers((prev) =>
-                            prev.map((item) => (item.id === t.id ? { ...item, isActive: !item.isActive } : item))
-                          );
-                        }}
-                        className={`px-3 py-1 rounded-lg text-xs font-semibold ${
-                          t.isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'
-                        }`}
-                      >
-                        {t.isActive ? 'Đang Bật' : 'Đang Ẩn'}
-                      </button>
-                    </div>
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Giảm Giá (% Sale)</label>
+                    <input
+                      type="number"
+                      value={newTier.discountPercent}
+                      onChange={(e) => setNewTier({ ...newTier, discountPercent: Number(e.target.value) })}
+                      className="w-full bg-[#111112] border border-[#262629] focus:border-[#2836f7] rounded-xl px-3 py-2 text-xs text-white"
+                    />
+                  </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateTier(t)}
-                      className="w-full py-2 rounded-xl bg-[#2836f7] hover:bg-[#424ef5] text-white text-xs font-medium transition-colors shadow-md mt-2"
-                    >
-                      Lưu Thay Đổi
-                    </button>
+                  <div>
+                    <label className="block text-[11px] text-zinc-400 mb-1">Thứ Tự Sắp Xếp (Sort Order)</label>
+                    <input
+                      type="number"
+                      value={newTier.sortOrder}
+                      onChange={(e) => setNewTier({ ...newTier, sortOrder: Number(e.target.value) })}
+                      className="w-full bg-[#111112] border border-[#262629] focus:border-[#2836f7] rounded-xl px-3 py-2 text-xs text-white"
+                    />
                   </div>
                 </div>
-              ))}
-            </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddTierModal(false)}
+                    className="px-4 py-2 rounded-xl bg-[#222224] hover:bg-[#2b2b2f] text-zinc-300 text-xs font-medium"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-md"
+                  >
+                    Lưu Gói Mới
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Empty State */}
+            {pricingTiers.length === 0 ? (
+              <div className="p-12 text-center rounded-2xl bg-[#161618] border border-[#222224] space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
+                  <DollarSign className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Chưa có gói mua lượt nào</h3>
+                  <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto">
+                    Bấm nút bên dưới để hệ thống tự động khởi tạo 3 gói chuẩn phòng thu (Starter, Pro, Studio).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={loadDashboardData}
+                  className="px-5 py-2.5 rounded-xl bg-[#2836f7] hover:bg-[#424ef5] text-white text-xs font-semibold shadow-md inline-flex items-center gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Khởi Tạo 3 Gói Mặc Định
+                </button>
+              </div>
+            ) : (
+              /* Grid Tiers */
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {pricingTiers.map((t) => (
+                  <div key={t.id} className="p-5 rounded-2xl bg-[#161618] border border-[#222224] space-y-4 relative flex flex-col justify-between">
+                    {t.discountPercent > 0 && (
+                      <div className="absolute -top-2.5 right-4 px-2 py-0.5 rounded-full bg-rose-500 text-white font-bold text-[10px] shadow-md uppercase tracking-wider">
+                        Sale -{t.discountPercent}%
+                      </div>
+                    )}
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 mr-2">
+                          <label className="block text-[10px] text-zinc-500 mb-0.5">Tên Gói</label>
+                          <input
+                            type="text"
+                            value={t.name}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setPricingTiers((prev) =>
+                                prev.map((item) => (item.id === t.id ? { ...item, name: val } : item))
+                              );
+                            }}
+                            className="w-full font-bold text-white text-sm bg-transparent border-b border-transparent focus:border-[#2836f7] focus:outline-none"
+                          />
+                        </div>
+                        <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-[#222224] text-zinc-400 uppercase">
+                          {t.id}
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] text-zinc-400 mb-1">Giá ($ USD)</label>
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={t.priceUsd}
+                              onChange={(e) => {
+                                const val = Number.parseFloat(e.target.value) || 0;
+                                setPricingTiers((prev) =>
+                                  prev.map((item) => (item.id === t.id ? { ...item, priceUsd: val } : item))
+                                );
+                              }}
+                              className="w-full bg-[#111112] border border-[#262629] focus:border-[#2836f7] rounded-xl px-3 py-1.5 text-xs text-white font-mono"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] text-zinc-400 mb-1">Số bài (Songs)</label>
+                            <input
+                              type="number"
+                              value={t.songCount}
+                              onChange={(e) => {
+                                const val = Number.parseInt(e.target.value, 10) || 0;
+                                setPricingTiers((prev) =>
+                                  prev.map((item) => (item.id === t.id ? { ...item, songCount: val } : item))
+                                );
+                              }}
+                              className="w-full bg-[#111112] border border-[#262629] focus:border-[#2836f7] rounded-xl px-3 py-1.5 text-xs text-white font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] text-zinc-400 mb-1">Giảm Giá (% Sale)</label>
+                          <input
+                            type="number"
+                            value={t.discountPercent}
+                            onChange={(e) => {
+                              const val = Number.parseInt(e.target.value, 10) || 0;
+                              setPricingTiers((prev) =>
+                                prev.map((item) => (item.id === t.id ? { ...item, discountPercent: val } : item))
+                              );
+                            }}
+                            className="w-full bg-[#111112] border border-[#262629] focus:border-[#2836f7] rounded-xl px-3 py-1.5 text-xs text-white font-mono"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-xs text-zinc-300">Trạng thái gói:</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPricingTiers((prev) =>
+                                prev.map((item) => (item.id === t.id ? { ...item, isActive: !item.isActive } : item))
+                              );
+                            }}
+                            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                              t.isActive ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700'
+                            }`}
+                          >
+                            {t.isActive ? 'Đang Bật' : 'Đang Ẩn'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-3 border-t border-[#222224]">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateTier(t)}
+                        className="flex-1 py-2 rounded-xl bg-[#2836f7] hover:bg-[#424ef5] text-white text-xs font-medium transition-colors shadow-md text-center"
+                      >
+                        Lưu Thay Đổi
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTier(t.id)}
+                        className="p-2 rounded-xl bg-[#222224] hover:bg-rose-500/10 text-rose-400 transition-colors"
+                        title="Xóa gói này"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>
