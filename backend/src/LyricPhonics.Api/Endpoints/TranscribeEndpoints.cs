@@ -115,57 +115,50 @@ public static class TranscribeEndpoints
                 return Results.BadRequest(new
                 {
                     success = false,
-                    error = $"Dung lượng file vượt quá giới hạn cho phép ({file.Length / (1024 * 1024)}MB > 25MB)."
+                    error = "Dung lượng tệp vượt quá 25MB. Vui lòng chọn tệp nhỏ hơn."
                 });
             }
 
-            // 3. Kiểm tra và chuẩn hóa định dạng MIME hợp lệ
+            // 3. Kiểm tra định dạng tệp: CHỈ CHẤP NHẬN .mp3 và .mp4
             string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            string contentType = file.ContentType;
-
-            if (string.IsNullOrWhiteSpace(contentType) || contentType == "application/octet-stream" || !AllowedMimeTypes.Contains(contentType))
+            if (extension != ".mp3" && extension != ".mp4")
             {
-                contentType = extension switch
+                return Results.BadRequest(new
                 {
-                    ".mp3" => "audio/mpeg",
-                    ".wav" => "audio/wav",
-                    ".m4a" => "audio/x-m4a",
-                    ".mp4" => "video/mp4",
-                    ".mov" => "video/mp4",
-                    ".m4v" => "video/mp4",
-                    ".ogg" => "audio/ogg",
-                    ".webm" => "video/webm",
-                    ".aac" => "audio/aac",
-                    ".flac" => "audio/flac",
-                    _ => contentType
-                };
-
-                if (!AllowedMimeTypes.Contains(contentType))
-                {
-                    return Results.BadRequest(new
-                    {
-                        success = false,
-                        error = $"Định dạng tệp '{extension}' không được hỗ trợ. Vui lòng tải lên MP3, WAV, M4A, MP4 hoặc MOV."
-                    });
-                }
+                    success = false,
+                    error = "Hệ thống chỉ hỗ trợ tệp định dạng MP3 hoặc MP4."
+                });
             }
 
+            string contentType = extension == ".mp3" ? "audio/mpeg" : "video/mp4";
+
             // 4. Mở luồng Stream và chuyển tiếp sang dịch vụ AI
-            // 💡 Lưu ý hiệu năng: file.OpenReadStream() không load toàn bộ vào mảng byte[] trên RAM,
-            // giúp tiết kiệm bộ nhớ máy chủ tối đa khi có hàng trăm request đồng thời.
             using var stream = file.OpenReadStream();
 
             string targetLang = form["targetLang"].FirstOrDefault() 
                 ?? request.Query["targetLang"].FirstOrDefault() 
                 ?? "vi";
 
-            var result = await transcriptionService.TranscribeAudioAsync(
-                stream,
-                contentType,
-                file.FileName,
-                targetLang,
-                cancellationToken
-            );
+            LyricPhonics.Domain.Models.TranscriptionResult result;
+            try
+            {
+                result = await transcriptionService.TranscribeAudioAsync(
+                    stream,
+                    contentType,
+                    file.FileName,
+                    targetLang,
+                    cancellationToken
+                );
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("hết lượt"))
+            {
+                return Results.Json(new
+                {
+                    success = false,
+                    error = "DAILY_QUOTA_EXHAUSTED",
+                    message = "Hôm nay hệ thống hết lượt rồi, chờ ngày mai."
+                }, statusCode: 429);
+            }
 
             // 5. Tự động tải file âm thanh lên Cloudflare R2 và lưu trữ thông tin vào PostgreSQL
             Guid newTrackId = Guid.NewGuid();

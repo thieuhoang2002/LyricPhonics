@@ -248,9 +248,13 @@ export default function AdminUniversePage(): React.JSX.Element {
         setApiKeys((prev) => [created, ...prev]);
         setNewKeyValue('');
         showNotice('Đã thêm API Key thành công!');
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        showNotice(`Lỗi: ${errJson.error || res.statusText || 'Không thể thêm API Key'}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      showNotice(`Lỗi mạng: ${err.message || 'Không thể kết nối'}`);
     }
   };
 

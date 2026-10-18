@@ -16,8 +16,9 @@ public static class TrackEndpoints
             .WithTags("Tracks")
             .WithOpenApi();
 
-        // 1. Lấy danh sách tất cả bài hát đã lưu trong Database
+        // 1. Lấy danh sách bài hát theo người dùng đã đăng nhập trong Database
         group.MapGet("/", async (
+            HttpContext context,
             IServiceProvider serviceProvider,
             CancellationToken cancellationToken) =>
         {
@@ -32,8 +33,31 @@ public static class TrackEndpoints
                 });
             }
 
-            var tracks = await repository.GetAllTracksAsync(cancellationToken);
-            var summaries = tracks.Select(t => new
+            var authService = serviceProvider.GetRequiredService<IAuthService>();
+            Guid? userId = null;
+            if (context.Request.Headers.TryGetValue("Authorization", out var authHeader))
+            {
+                userId = authService.ValidateToken(authHeader.ToString());
+            }
+
+            // Nếu chưa đăng nhập: trả về danh sách rỗng (bài cloud gắn theo tài khoản)
+            if (userId == null)
+            {
+                return Results.Ok(new
+                {
+                    success = true,
+                    data = Array.Empty<object>()
+                });
+            }
+
+            var userRepo = serviceProvider.GetService<IUserRepository>();
+            var currentUser = userRepo != null ? await userRepo.GetByIdAsync(userId.Value, cancellationToken) : null;
+            bool isAdmin = currentUser?.IsAdmin ?? false;
+
+            var allTracks = await repository.GetAllTracksAsync(cancellationToken);
+            var userTracks = isAdmin ? allTracks : allTracks.Where(t => t.UserId == userId).ToList();
+
+            var summaries = userTracks.Select(t => new
             {
                 id = t.Id,
                 title = t.Title,
@@ -54,7 +78,7 @@ public static class TrackEndpoints
             });
         })
         .Produces(StatusCodes.Status200OK)
-        .WithSummary("Lấy danh sách bài hát đã lưu trong PostgreSQL (Neon DB)");
+        .WithSummary("Lấy danh sách bài hát của người dùng trong Cloud Database");
 
         // 2. Lấy chi tiết một bài hát (kèm danh sách lời)
         group.MapGet("/{id:guid}", async (
@@ -104,9 +128,10 @@ public static class TrackEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .WithSummary("Lấy chi tiết bài hát và lời từ PostgreSQL");
 
-        // 3. Xóa bài hát khỏi Database
+        // 3. Xóa bài hát khỏi Database và Cloudflare R2
         group.MapDelete("/{id:guid}", async (
             Guid id,
+            HttpContext context,
             IServiceProvider serviceProvider,
             CancellationToken cancellationToken) =>
         {
@@ -120,6 +145,23 @@ public static class TrackEndpoints
             if (track == null)
             {
                 return Results.NotFound(new { success = false, error = $"Không tìm thấy bài hát có mã {id}" });
+            }
+
+            // Kiểm tra quyền sở hữu (người dùng chỉ được xóa bài của mình, Admin được xóa tất cả)
+            var authService = serviceProvider.GetRequiredService<IAuthService>();
+            Guid? userId = null;
+            if (context.Request.Headers.TryGetValue("Authorization", out var authHeader))
+            {
+                userId = authService.ValidateToken(authHeader.ToString());
+            }
+
+            var userRepo = serviceProvider.GetService<IUserRepository>();
+            var currentUser = userId != null && userRepo != null ? await userRepo.GetByIdAsync(userId.Value, cancellationToken) : null;
+            bool isAdmin = currentUser?.IsAdmin ?? false;
+
+            if (!isAdmin && track.UserId != null && track.UserId != userId)
+            {
+                return Results.Json(new { success = false, error = "Bạn không có quyền xóa bài hát này." }, statusCode: 403);
             }
 
             // Nếu có file trên Cloudflare R2, tiến hành xóa file

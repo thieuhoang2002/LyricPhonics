@@ -11,6 +11,7 @@ import {
   Database,
   HardDrive,
   Sparkles,
+  Cloud,
   CloudUpload,
   Check,
   Loader2,
@@ -70,18 +71,44 @@ export function SavedProjectsModal({
   const loadCloudList = useCallback(async () => {
     setIsLoading(true);
     try {
+      const token = getAuthToken();
       const apiUrl = `${getApiBaseUrl()}/api/tracks`;
-      const res = await fetch(apiUrl);
+      const res = await fetch(apiUrl, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setCloudProjects(json.data);
       }
     } catch (err) {
-      console.warn('Không thể tải danh sách từ Cloud DB:', err);
+      console.warn('Không thể tải danh sách từ Cloud:', err);
     } finally {
       setIsLoading(false);
     }
   }, []);
+
+  const handleDeleteCloud = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!window.confirm('Bạn có chắc chắn muốn xóa bài hát này khỏi đám mây và file âm thanh?')) {
+      return;
+    }
+    try {
+      const token = getAuthToken();
+      const apiUrl = `${getApiBaseUrl()}/api/tracks/${id}`;
+      const res = await fetch(apiUrl, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        await loadCloudList();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Không thể xóa bài hát trên đám mây.');
+      }
+    } catch {
+      alert('Không thể kết nối đến máy chủ để xóa bài hát.');
+    }
+  };
 
   const handleSyncToCloud = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -131,13 +158,10 @@ export function SavedProjectsModal({
 
   useEffect(() => {
     if (isOpen) {
-      if (activeTab === 'offline') {
-        loadOfflineList();
-      } else {
-        loadCloudList();
-      }
+      loadOfflineList();
+      loadCloudList();
     }
-  }, [isOpen, activeTab, loadOfflineList, loadCloudList]);
+  }, [isOpen, loadOfflineList, loadCloudList]);
 
   if (!isOpen) return null;
 
@@ -161,13 +185,13 @@ export function SavedProjectsModal({
         }
       }
     } catch (err) {
-      console.error('Lỗi khi tải bài hát từ Cloud DB:', err);
+      console.error('Lỗi khi tải bài hát từ Đám mây:', err);
     }
   };
 
   const handleDeleteOffline = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (window.confirm('Bạn có chắc chắn muốn xóa bài hát này khỏi danh sách đã lưu?')) {
+    if (window.confirm('Bạn có chắc chắn muốn xóa bài hát này khỏi thiết bị?')) {
       await deleteProject(id);
       await loadOfflineList();
     }
@@ -196,7 +220,7 @@ export function SavedProjectsModal({
             <div>
               <h2 className="text-base font-bold text-white">Thư Viện Bài Hát</h2>
               <p className="text-xs text-slate-400">
-                Đồng bộ Offline Trình duyệt & Cloud Database (PostgreSQL Neon)
+                Lưu trữ trên thiết bị & Đám mây tài khoản
               </p>
             </div>
           </div>
@@ -221,7 +245,7 @@ export function SavedProjectsModal({
             }`}
           >
             <HardDrive className="w-3.5 h-3.5" />
-            <span>Bộ nhớ Offline ({offlineProjects.length})</span>
+            <span>Thiết bị này ({offlineProjects.length})</span>
           </button>
 
           <button
@@ -233,8 +257,8 @@ export function SavedProjectsModal({
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Database className="w-3.5 h-3.5 text-sky-400" />
-            <span>Neon PostgreSQL ({cloudProjects.length})</span>
+            <Cloud className="w-3.5 h-3.5 text-sky-400" />
+            <span>Đám mây ({cloudProjects.length})</span>
           </button>
         </div>
 
@@ -250,12 +274,16 @@ export function SavedProjectsModal({
                 <Music2 className="w-12 h-12 mx-auto text-slate-600 mb-3" />
                 <p className="text-sm font-medium text-slate-300">Chưa có bài hát nào lưu trên máy</p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Khi bạn tải file nhạc/video lên, hệ thống sẽ tự động lưu lại vào bộ nhớ offline kèm audio.
+                  Khi bạn tải file nhạc/video lên, hệ thống sẽ tự động lưu lại vào bộ nhớ trên thiết bị kèm audio.
                 </p>
               </div>
             ) : (
               offlineProjects.map((item) => {
                 const isCurrent = item.id === currentProjectId;
+                const isAlreadyOnCloud = cloudProjects.some(
+                  (cp) => cp.title.toLowerCase().trim() === item.title.toLowerCase().trim()
+                );
+
                 return (
                   <div
                     key={item.id}
@@ -308,31 +336,38 @@ export function SavedProjectsModal({
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={(e) => handleSyncToCloud(e, item.id)}
-                        disabled={syncingId === item.id}
-                        className={`p-2 rounded-lg transition-colors flex items-center gap-1 text-xs ${
-                          syncSuccessId === item.id
-                            ? 'text-emerald-400 bg-emerald-500/10'
-                            : 'text-slate-400 hover:text-sky-300 hover:bg-sky-500/10'
-                        }`}
-                        title="Đồng bộ / Lưu bài hát này lên Cloud Database (PostgreSQL Neon)"
-                      >
-                        {syncingId === item.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
-                        ) : syncSuccessId === item.id ? (
-                          <Check className="w-4 h-4 text-emerald-400" />
-                        ) : (
-                          <CloudUpload className="w-4 h-4" />
-                        )}
-                      </button>
+                      {isAlreadyOnCloud ? (
+                        <span className="text-[11px] px-2.5 py-1 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20 font-medium flex items-center gap-1">
+                          <Cloud className="w-3 h-3" />
+                          Đã lưu Đám mây
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => handleSyncToCloud(e, item.id)}
+                          disabled={syncingId === item.id}
+                          className={`p-2 rounded-lg transition-colors flex items-center gap-1 text-xs ${
+                            syncSuccessId === item.id
+                              ? 'text-emerald-400 bg-emerald-500/10'
+                              : 'text-slate-400 hover:text-sky-300 hover:bg-sky-500/10'
+                          }`}
+                          title="Lưu bài hát này lên Đám mây tài khoản"
+                        >
+                          {syncingId === item.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+                          ) : syncSuccessId === item.id ? (
+                            <Check className="w-4 h-4 text-emerald-400" />
+                          ) : (
+                            <CloudUpload className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
 
                       <button
                         type="button"
                         onClick={(e) => handleDeleteOffline(e, item.id)}
                         className="p-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                        title="Xóa bài này khỏi bộ nhớ máy"
+                        title="Xóa bài này khỏi thiết bị"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -343,10 +378,10 @@ export function SavedProjectsModal({
             )
           ) : cloudProjects.length === 0 ? (
             <div className="py-12 text-center text-slate-400">
-              <Database className="w-12 h-12 mx-auto text-slate-600 mb-3" />
-              <p className="text-sm font-medium text-slate-300">Chưa có bài hát nào trên PostgreSQL Neon DB</p>
+              <Cloud className="w-12 h-12 mx-auto text-slate-600 mb-3" />
+              <p className="text-sm font-medium text-slate-300">Chưa có bài hát nào trên Đám mây</p>
               <p className="text-xs text-slate-500 mt-1">
-                Các bài hát bóc tách sẽ tự động đồng bộ vào Cloud Database.
+                Các bài hát đã bóc tách có thể lưu lên Đám mây tài khoản để đồng bộ đa thiết bị.
               </p>
             </div>
           ) : (
@@ -358,15 +393,19 @@ export function SavedProjectsModal({
               >
                 <div className="flex items-center gap-3.5 min-w-0 pr-4">
                   <div className="w-10 h-10 rounded-xl bg-slate-800 text-sky-400 group-hover:bg-sky-500/20 group-hover:text-sky-300 flex items-center justify-center shrink-0">
-                    <Database className="w-4 h-4" />
+                    <Cloud className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
                     <h3 className="font-semibold text-sm text-slate-100 truncate group-hover:text-cyan-300 transition-colors">
                       {item.title}
                     </h3>
                     <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-1">
-                      <span>Ca sĩ: {item.artist}</span>
-                      <span>•</span>
+                      {item.artist && (
+                        <>
+                          <span>Ca sĩ: {item.artist}</span>
+                          <span>•</span>
+                        </>
+                      )}
                       <span className="uppercase text-slate-300 font-mono">
                         {item.detectedLanguage}
                       </span>
@@ -378,6 +417,17 @@ export function SavedProjectsModal({
                     </div>
                   </div>
                 </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteCloud(e, item.id)}
+                    className="p-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                    title="Xóa bài này khỏi Đám mây"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))
           )}
@@ -387,8 +437,8 @@ export function SavedProjectsModal({
         <div className="px-6 py-3.5 bg-slate-950/60 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
           <span>
             {activeTab === 'offline'
-              ? `${offlineProjects.length} bài hát trong bộ nhớ offline`
-              : `${cloudProjects.length} bài hát trên Neon PostgreSQL`}
+              ? `${offlineProjects.length} bài hát trên thiết bị này`
+              : `${cloudProjects.length} bài hát trên Đám mây`}
           </span>
           <button
             type="button"

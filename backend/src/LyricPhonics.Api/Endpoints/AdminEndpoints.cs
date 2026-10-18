@@ -92,8 +92,15 @@ public static class AdminEndpoints
             IAdminService adminService,
             CancellationToken cancellationToken) =>
         {
-            var key = await adminService.AddApiKeyAsync(request, cancellationToken);
-            return Results.Ok(key);
+            try
+            {
+                var key = await adminService.AddApiKeyAsync(request, cancellationToken);
+                return Results.Ok(key);
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
         })
         .WithName("AdminAddApiKey")
         .WithSummary("Thêm API Key mới");

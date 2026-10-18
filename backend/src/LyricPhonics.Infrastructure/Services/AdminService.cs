@@ -339,15 +339,48 @@ CREATE TABLE IF NOT EXISTS admin_securities (
             _logger.LogWarning(ex, "Lỗi khi đồng bộ API keys từ biến môi trường.");
         }
 
-        return await _dbContext.ApiKeys.OrderByDescending(k => k.CreatedAt).ToListAsync(cancellationToken);
+        try
+        {
+            return await _dbContext.ApiKeys.OrderByDescending(k => k.CreatedAt).ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi truy vấn danh sách API Keys từ database.");
+            return new List<ApiKeyEntity>();
+        }
     }
 
     public async Task<ApiKeyEntity> AddApiKeyAsync(CreateApiKeyRequest request, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(request.KeyValue))
+        {
+            throw new ArgumentException("Chuỗi API Key không được để trống.");
+        }
+
+        string provider = (request.Provider ?? "gemini").Trim().ToLowerInvariant();
+        if (provider != "gemini" && provider != "groq")
+        {
+            provider = request.KeyValue.Trim().StartsWith("gsk_") ? "groq" : "gemini";
+        }
+
+        string trimmedKey = request.KeyValue.Trim();
+
+        // Kiểm tra xem key đã tồn tại chưa
+        var existing = await _dbContext.ApiKeys.FirstOrDefaultAsync(k => k.KeyValue == trimmedKey, cancellationToken);
+        if (existing != null)
+        {
+            existing.Status = "Healthy";
+            existing.IsActive = true;
+            existing.Provider = provider;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return existing;
+        }
+
         var key = new ApiKeyEntity
         {
-            Provider = request.Provider.Trim().ToLowerInvariant(),
-            KeyValue = request.KeyValue.Trim(),
+            Id = Guid.NewGuid(),
+            Provider = provider,
+            KeyValue = trimmedKey,
             Status = "Healthy",
             IsActive = true,
             CreatedAt = DateTime.UtcNow

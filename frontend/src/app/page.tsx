@@ -18,6 +18,8 @@ import {
 import {
   saveProject,
   getLatestProject,
+  getAllProjectSummaries,
+  getProjectById,
   type SavedProject,
 } from '@/lib/storage/projectStore';
 import {
@@ -349,24 +351,45 @@ export default function Home(): React.JSX.Element {
     [player, targetLanguage]
   );
 
-  // Chọn mở một bài hát từ Cloud Database (Neon PostgreSQL & Cloudflare R2)
+  // Chọn mở một bài hát từ Đám mây tài khoản (Cloud Database)
   const handleSelectCloudTrack = useCallback(
-    (cloudTrack: { metadata: any; lines: any[]; audioUrl?: string }): void => {
+    async (cloudTrack: { id?: string; metadata: any; lines: any[]; audioUrl?: string }): Promise<void> => {
       player.reset();
       setFile(null);
+
+      // 1. Nếu bài hát đã có audioUrl trên Cloudflare R2, phát trực tiếp
       if (cloudTrack.audioUrl) {
         setAudioUrl(cloudTrack.audioUrl);
       } else {
-        setAudioUrl(null);
+        // 2. Nếu Cloud chưa có file (chưa cấu hình R2), tự động tìm audio tương ứng trong bộ nhớ máy
+        try {
+          const offlineList = await getAllProjectSummaries();
+          const targetTitle = (cloudTrack.metadata?.title || '').toLowerCase().trim();
+          const match = offlineList.find((p) => (p.title || '').toLowerCase().trim() === targetTitle);
+          if (match) {
+            const localProj = await getProjectById(match.id);
+            if (localProj?.audioBlob) {
+              const url = URL.createObjectURL(localProj.audioBlob);
+              setAudioUrl(url);
+              currentBlobRef.current = localProj.audioBlob;
+            } else {
+              setAudioUrl(null);
+            }
+          } else {
+            setAudioUrl(null);
+          }
+        } catch {
+          setAudioUrl(null);
+        }
       }
-      currentBlobRef.current = null;
-      setCurrentProjectId(null);
+
+      setCurrentProjectId(cloudTrack.id || null);
       setTranscription({
         metadata: cloudTrack.metadata,
         lines: cloudTrack.lines,
       });
 
-      setSaveStatus(targetLanguage === 'vi' ? 'Đã tải bài hát từ Cloud' : 'Loaded from Cloud');
+      setSaveStatus(targetLanguage === 'vi' ? 'Đã mở bài hát từ Đám mây' : 'Loaded from Cloud');
       setTimeout(() => setSaveStatus(null), 3000);
     },
     [player, targetLanguage]

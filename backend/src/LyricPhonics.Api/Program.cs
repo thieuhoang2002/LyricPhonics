@@ -188,6 +188,15 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='api_keys' AND column_name='IsActive') THEN
         ALTER TABLE api_keys ADD COLUMN ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='api_keys' AND column_name='LatencyMs') THEN
+        ALTER TABLE api_keys ADD COLUMN ""LatencyMs"" BIGINT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='api_keys' AND column_name='LastCheckedAt') THEN
+        ALTER TABLE api_keys ADD COLUMN ""LastCheckedAt"" TIMESTAMP WITH TIME ZONE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='api_keys' AND column_name='Status') THEN
+        ALTER TABLE api_keys ADD COLUMN ""Status"" VARCHAR(50) NOT NULL DEFAULT 'Healthy';
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pricing_tiers' AND column_name='SortOrder') THEN
         ALTER TABLE pricing_tiers ADD COLUMN ""SortOrder"" INT NOT NULL DEFAULT 0;
     END IF;

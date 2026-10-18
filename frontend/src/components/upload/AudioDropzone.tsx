@@ -11,7 +11,7 @@ export interface AudioDropzoneProps {
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
 
-const ACCEPTED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.mp4', '.mov', '.m4v', '.ogg', '.aac', '.flac', '.webm'];
+const ACCEPTED_EXTENSIONS = ['.mp3', '.mp4'];
 
 export function AudioDropzone({
   onFileSelected,
@@ -26,27 +26,23 @@ export function AudioDropzone({
     (file: File): void => {
       setValidationError(null);
 
-      // Validate File Size
+      // 1. Kiểm tra dung lượng file (Tối đa 25MB)
       if (file.size > MAX_FILE_SIZE_BYTES) {
-        setValidationError(
-          `Dung lượng file (${(file.size / (1024 * 1024)).toFixed(1)}MB) vượt quá giới hạn tối đa 25MB.`
-        );
+        setValidationError('Dung lượng tệp vượt quá 25MB. Vui lòng chọn tệp nhỏ hơn.');
         return;
       }
 
-      // Validate File Extension / Type
+      // 2. Kiểm tra định dạng: CHỈ CHẤP NHẬN .mp3 và .mp4
       const fileNameLower = file.name.toLowerCase();
-      const hasValidExt = ACCEPTED_EXTENSIONS.some((ext) => fileNameLower.endsWith(ext));
-      const hasValidMime = file.type.startsWith('audio/') || file.type.startsWith('video/');
+      const isMp3 = fileNameLower.endsWith('.mp3');
+      const isMp4 = fileNameLower.endsWith('.mp4');
 
-      if (!hasValidExt && !hasValidMime) {
-        setValidationError(
-          'Định dạng không được hỗ trợ. Vui lòng chọn file âm thanh hoặc video (.mp3, .wav, .m4a, .mp4, .ogg).'
-        );
+      if (!isMp3 && !isMp4) {
+        setValidationError('Hệ thống chỉ hỗ trợ tệp định dạng MP3 hoặc MP4.');
         return;
       }
 
-      // Create Object URL for RAM-only playback
+      // Tạo Object URL cho phát lại an toàn trên RAM
       const objectUrl = URL.createObjectURL(file);
       onFileSelected(file, objectUrl);
     },
@@ -104,7 +100,7 @@ export function AudioDropzone({
       <input
         ref={fileInputRef}
         type="file"
-        accept="audio/*,video/mp4,video/webm,.m4a,.mp3,.wav,.ogg"
+        accept=".mp3,audio/mpeg,audio/mp3,.mp4,video/mp4"
         className="hidden"
         onChange={handleFileInputChange}
         disabled={isProcessing}
@@ -157,10 +153,10 @@ export function AudioDropzone({
 
             <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-zinc-500">
               <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#1e1e22] text-zinc-300">
-                <Music className="w-3.5 h-3.5 text-[#424ef5]" /> MP3, WAV, M4A
+                <Music className="w-3.5 h-3.5 text-[#424ef5]" /> MP3 Audio
               </span>
               <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#1e1e22] text-zinc-300">
-                <FileVideo className="w-3.5 h-3.5 text-amber-400" /> MP4 Video TikTok
+                <FileVideo className="w-3.5 h-3.5 text-amber-400" /> MP4 Video
               </span>
               <span className="px-2.5 py-1 rounded-full bg-[#1e1e22] text-zinc-300">
                 Tối đa 25MB
