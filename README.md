@@ -38,17 +38,21 @@ graph TD
     User["👤 User / Content Creator"] -->|Web Browser| FE["💻 Frontend (Next.js 14 App Router)"]
     FE -->|Karaoke 60fps| Player["🎵 useAudioPlayer (HTML5 Audio + rAF)"]
     FE -->|Real-time Binary Search| Sync["⚡ useLyricSync - O(log N)"]
-    FE -->|Multipart Audio Stream| API["🚀 LyricPhonics.Api (.NET 8 Minimal API)"]
+    FE -->|JWT Authenticated Stream| API["🚀 LyricPhonics.Api (.NET 8 Minimal API)"]
     
     subgraph "Backend (.NET 8 LTS Clean Architecture)"
         API -->|Dependency Injection| App["📦 LyricPhonics.Application"]
         App -->|Interfaces| Domain["💎 LyricPhonics.Domain (Records & Enums)"]
         Infra["⚙️ LyricPhonics.Infrastructure"] -->|Implements| App
         Infra -->|Uses| Domain
+        Infra -->|Rate Limit & Quota Guard| Pool["🔑 ApiKeyPoolService (Sliding Window RPM & RPD)"]
         Infra -->|Polly v8 Resilience| HTTPClient["🌐 Typed HttpClient"]
+        Infra -->|EF Core Npgsql| Neon["🐘 Neon PostgreSQL Database"]
+        Infra -->|S3 Client| R2["☁️ Cloudflare R2 Audio Storage"]
     end
 
-    HTTPClient -->|Base64 Audio Stream| Gemini["🤖 Google Gemini 3.5 Flash Audio API"]
+    Pool -->|Round-Robin Key| HTTPClient
+    HTTPClient -->|Audio Stream| AI["🤖 Google Gemini & Groq Multimodal APIs"]
 ```
 
 ---
@@ -66,13 +70,24 @@ Every recognized line is partitioned into three synchronized layers:
 - **$O(\log N)$ Binary Search Engine:** Instantaneous line lookup across 10,000 lines in $<1\text{ms}$.
 - Micro-adjustment toolbar: nudge timing by $\pm 0.5s$ or bind current playback timestamp.
 
-### 3. Native Speech Pronunciation
+### 3. Dynamic AI Engine Pool & Intelligent Rate Limiting
+- **Zero 429 Errors:** Sliding-window 1-minute RPM limiter and daily RPD quota tracking for Gemini (5 RPM, 20 RPD) and Groq (30 RPM, 1,000 RPD).
+- Automatic pacing and round-robin fallback across healthy pool keys.
+- Real-time health monitoring and dynamic API key ingestion via Admin Portal.
+
+### 4. Cloud Synchronization & Audio Storage
+- **Neon PostgreSQL & Cloudflare R2:** Persistent song metadata and high-speed audio streaming.
+- User-isolated song libraries with strict creator authorization on deletion.
+- Intelligent deduplication between device storage and cloud with offline audio recovery.
+
+### 5. Native Speech Pronunciation
 - Integrated browser-native Web Speech Synthesis API allows users to click **`[🔊 Pronounce]`** to hear standard native pronunciation (Mandarin, Japanese, Korean, English) at 0.85x speed for practice.
 
-### 4. 1-Click Multi-Format Export
+### 6. 1-Click Multi-Format Export
 - **`.LRC`:** Standard karaoke file with `[mm:ss.xx]` tags for media players.
 - **`.SRT`:** Synchronized subtitle track ready to import into **CapCut** or **Adobe Premiere**.
 - **`.TXT`:** Clean lyric sheet for reading or printing.
+- **`Clipboard`:** Instant formatted copy with emojis.
 - **`Clipboard`:** Instant formatted copy with emojis.
 
 ---

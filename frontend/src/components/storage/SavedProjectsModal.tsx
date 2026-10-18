@@ -121,12 +121,17 @@ export function SavedProjectsModal({
       }
 
       const token = getAuthToken();
+      if (!token) {
+        alert('Vui lòng đăng nhập tài khoản để lưu bài hát lên Đám mây.');
+        return;
+      }
+
       const apiUrl = `${getApiBaseUrl()}/api/tracks/sync`;
       const res = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title: fullProject.title,

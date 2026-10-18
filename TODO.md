@@ -46,4 +46,17 @@
 - [x] ✅ Create English documentation (`README.md`, `docs/OVERVIEW.md`, `CONTRIBUTING.md`)
 - [x] ✅ Enable GitHub Sponsors, Ko-fi, Buy Me a Coffee, and PayPal funding
 - [x] ✅ Push entire codebase to GitHub repository
-- [ ] ⬜ Add GitHub Actions CI workflow for automated testing on push/PR
+
+---
+
+## 🛡️ Milestone 5: Security Hardening, Quota Guard & Cloud Storage (Sprint 5)
+*Goal: Hardened user authorization, Cloudflare R2 audio integration, rate limiting & quota management.*
+
+- [x] ✅ User track isolation and strict ownership verification on track deletion
+- [x] ✅ Dynamic AI key pool rotation with sliding-window 1-minute RPM limiter & daily RPD quota guard
+- [x] ✅ Automatic fallback between pool keys to eliminate HTTP 429 rate limit exceptions
+- [x] ✅ Cloudflare R2 audio object upload & deletion with local IndexedDB fallback
+- [x] ✅ Client & server strict media validation ($\le$ 25MB, `.mp3` and `.mp4` only)
+- [x] ✅ Auto-migration for PostgreSQL (Neon DB) tables on startup
+- [x] ✅ Admin Universe Portal with pricing tier CRUD and dynamic API key management
+- [x] ✅ Automated test suite pass rate: 21/21 xUnit tests (.NET 8) and 43/43 Vitest tests (Next.js) passing

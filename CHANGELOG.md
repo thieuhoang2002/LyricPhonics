@@ -14,6 +14,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Automated VietQR payment processing (SePay/Casso).
 - Direct audio extraction via TikTok and YouTube Shorts URLs.
 
+## [0.4.0] - 2026-10-18
+
+### Added & Enhanced
+- **Security & Authorization Hardening:**
+  - Strict ownership checks on track deletion: only the track creator or System Admin can delete tracks.
+  - Authentication requirement for Cloud track synchronization (`POST /api/tracks/sync`).
+  - User Isolation: Song library queries automatically scope to the authenticated user ID (`UserId`).
+  - Enhanced Cloudflare Turnstile bot verification with detailed diagnostics and safe fallback.
+- **Dynamic AI Key Pool & Intelligent Rate Limiting:**
+  - Thread-safe sliding-window 1-minute RPM limiter and daily RPD quota tracking for Gemini (5 RPM, 20 RPD) and Groq (30 RPM, 1,000 RPD).
+  - Automatic pacing and round-robin fallback across healthy pool keys to eliminate HTTP 429 rate limit exceptions.
+  - Friendly daily exhaustion response: *"Hôm nay hệ thống hết lượt rồi, chờ ngày mai."*
+- **File Validation & Cloud Storage Integration:**
+  - Strict input file validation: maximum 25MB, strictly `.mp3` and `.mp4` media files (enforced on both client and server).
+  - Cloud track deletion with cascading audio object removal in Cloudflare R2.
+  - Offline-to-Cloud deduplication indicators and audio recovery from local IndexedDB when R2 is unconfigured.
+- **Admin Universe Portal & Database Resilience:**
+  - Automatic startup migration for PostgreSQL (Neon DB) tables (`api_keys`, `tracks`, `users`).
+  - Complete pricing tier management (CRUD) for song credits.
+  - Real-time API key health verification and dynamic key ingestion.
+
 ---
 
 ## [0.3.0] - 2026-10-17

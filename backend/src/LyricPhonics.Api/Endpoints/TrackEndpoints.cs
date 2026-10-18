@@ -147,7 +147,7 @@ public static class TrackEndpoints
                 return Results.NotFound(new { success = false, error = $"Không tìm thấy bài hát có mã {id}" });
             }
 
-            // Kiểm tra quyền sở hữu (người dùng chỉ được xóa bài của mình, Admin được xóa tất cả)
+            // Kiểm tra quyền sở hữu (chỉ người dùng sở hữu bài hát hoặc Admin mới được xóa)
             var authService = serviceProvider.GetRequiredService<IAuthService>();
             Guid? userId = null;
             if (context.Request.Headers.TryGetValue("Authorization", out var authHeader))
@@ -159,9 +159,17 @@ public static class TrackEndpoints
             var currentUser = userId != null && userRepo != null ? await userRepo.GetByIdAsync(userId.Value, cancellationToken) : null;
             bool isAdmin = currentUser?.IsAdmin ?? false;
 
-            if (!isAdmin && track.UserId != null && track.UserId != userId)
+            if (!isAdmin)
             {
-                return Results.Json(new { success = false, error = "Bạn không có quyền xóa bài hát này." }, statusCode: 403);
+                if (userId == null)
+                {
+                    return Results.Json(new { success = false, error = "Vui lòng đăng nhập để thực hiện thao tác này." }, statusCode: 401);
+                }
+
+                if (track.UserId != userId)
+                {
+                    return Results.Json(new { success = false, error = "Bạn không có quyền xóa bài hát này." }, statusCode: 403);
+                }
             }
 
             // Nếu có file trên Cloudflare R2, tiến hành xóa file
@@ -204,6 +212,11 @@ public static class TrackEndpoints
             if (context.Request.Headers.TryGetValue("Authorization", out var authHeader))
             {
                 userId = authService.ValidateToken(authHeader.ToString());
+            }
+
+            if (userId == null)
+            {
+                return Results.Json(new { success = false, error = "Vui lòng đăng nhập tài khoản để đồng bộ bài hát lên Đám mây." }, statusCode: 401);
             }
 
             Guid trackId = Guid.TryParse(request.Id, out var parsedId) ? parsedId : Guid.NewGuid();
