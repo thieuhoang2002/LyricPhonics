@@ -30,28 +30,42 @@ export function PricingModal({
       id: 'starter',
       name: 'Starter Pack',
       price: '$3',
-      songs: '10 bài hát',
-      desc: 'Phù hợp trải nghiệm tạo lời cover và luyện hát',
-      features: ['10 bài hát phiên âm 4 tầng chuẩn', 'Hỗ trợ 5 ngôn ngữ đích', 'Xuất file LRC & TXT 1-click'],
+      songs: '10 songs',
+      desc: 'Perfect for trying out phonetic cover lyrics & vocal practice',
+      features: [
+        '10 studio-standard phonetic cover songs',
+        'Support for all target languages',
+        '1-click LRC, SRT & TXT export',
+      ],
       badge: null,
     },
     {
       id: 'pro',
       name: 'Pro Musician',
       price: '$6',
-      songs: '25 bài hát',
-      desc: 'Lựa chọn tốt nhất cho ca sĩ cover & nhạc sĩ',
-      features: ['25 bài hát chuẩn phòng thu', 'Tự động tái tạo phiên âm AI LPU', 'Ưu tiên xử lý tốc độ cao', 'Lưu trữ không giới hạn thời gian'],
-      badge: 'Phổ biến nhất',
+      songs: '25 songs',
+      desc: 'Best choice for active cover singers & artists',
+      features: [
+        '25 studio-grade phonetic cover songs',
+        'High-speed AI processing engine',
+        'Priority server queue',
+        'Permanent cloud storage',
+      ],
+      badge: 'Most Popular',
     },
     {
       id: 'studio',
       name: 'Studio Unlimited',
       price: '$15',
-      songs: '70 bài hát',
-      desc: 'Dành cho phòng thu & nhà sáng tạo nội dung',
-      features: ['70 bài hát cover chất lượng cao', 'Tốc độ siêu tốc Groq LPU', 'Hỗ trợ kỹ thuật ưu tiên 24/7', 'Tất cả các bản cập nhật tương lai'],
-      badge: 'Tiết kiệm 30%',
+      songs: '70 songs',
+      desc: 'Designed for music studios, producers & power creators',
+      features: [
+        '70 high-quality cover songs',
+        'Ultra-fast Groq LPU acceleration',
+        '24/7 priority technical support',
+        'All future engine updates included',
+      ],
+      badge: 'Save 30%',
     },
   ];
 
@@ -65,14 +79,11 @@ export function PricingModal({
               <Zap className="w-5 h-5 fill-current" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                Nâng cấp Lượt tạo & Lưu Bài Hát
-                <span className="text-xs px-2 py-0.5 rounded-full bg-[#2836f7]/20 text-[#424ef5] border border-[#2836f7]/30">
-                  Melody Pro
-                </span>
+              <h2 className="text-xl font-bold text-white">
+                Upgrade Song Credits & Storage
               </h2>
               <p className="text-xs text-zinc-400 mt-0.5">
-                Mỗi tài khoản miễn phí 2 bài hát. Nạp thêm lượt để tiếp tục bóc tách lời cover không giới hạn.
+                Every account gets 2 free songs. Top up credits to continue unlimited AI phonetic cover transcription.
               </p>
             </div>
           </div>
@@ -129,10 +140,14 @@ export function PricingModal({
         <div className="mt-8 p-5 rounded-2xl bg-[#18181b] border border-[#262629]">
           <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
             <CreditCard className="w-4 h-4 text-[#424ef5]" />
-            Phương thức Thanh toán & Donate (Duyệt lượt trong 1-5 phút)
+            Payment & Donation Methods (Activated within 1–5 minutes)
           </h3>
           <p className="text-xs text-zinc-400 mb-4">
-            Vui lòng ghi kèm nội dung chuyển khoản là <b className="text-white font-mono bg-[#222224] px-1.5 py-0.5 rounded">{userEmail || 'Email của bạn'}</b> để hệ thống cộng lượt tự động.
+            Please include your account email in the transfer note:{' '}
+            <b className="text-white font-mono bg-[#222224] px-1.5 py-0.5 rounded">
+              {userEmail || 'your-email@example.com'}
+            </b>{' '}
+            for automatic credit top-up.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -148,7 +163,7 @@ export function PricingModal({
               </div>
               <div>
                 <div className="text-xs font-bold">Ko-fi</div>
-                <div className="text-[10px] text-zinc-400 group-hover:text-zinc-200">Donate $ qua Ko-fi</div>
+                <div className="text-[10px] text-zinc-400 group-hover:text-zinc-200">Donate via Ko-fi</div>
               </div>
             </a>
 
@@ -164,7 +179,7 @@ export function PricingModal({
               </div>
               <div>
                 <div className="text-xs font-bold">Buy Me Coffee</div>
-                <div className="text-[10px] text-zinc-400 group-hover:text-zinc-200">Donate qua thẻ quốc tế</div>
+                <div className="text-[10px] text-zinc-400 group-hover:text-zinc-200">International Cards</div>
               </div>
             </a>
 
@@ -201,7 +216,7 @@ export function PricingModal({
               <button
                 type="button"
                 className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#2c2c31]"
-                title="Sao chép số tài khoản"
+                title="Copy account number"
               >
                 {copiedBank ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
@@ -210,11 +225,11 @@ export function PricingModal({
 
           <div className="mt-4 pt-3 border-t border-[#262629] flex flex-col sm:flex-row items-center justify-between text-[11px] text-zinc-400 gap-2">
             <div>
-              Chủ tài khoản Techcombank: <b className="text-white">THIEU VIET HOANG</b> • STK: <b className="text-white font-mono">3909032002</b>
+              Account Holder: <b className="text-white">THIEU VIET HOANG</b> • Account No: <b className="text-white font-mono">3909032002</b>
             </div>
             <div className="text-emerald-400 flex items-center gap-1 font-medium">
               <Sparkles className="w-3.5 h-3.5" />
-              Lượt sẽ được kích hoạt tức thì sau khi xác nhận chuyển khoản
+              Credits will be activated instantly upon payment confirmation
             </div>
           </div>
         </div>
