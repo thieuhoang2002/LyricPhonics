@@ -32,7 +32,26 @@ public record GeminiTextPart(
 
 public record GeminiPart(
     [property: JsonPropertyName("text")] string? Text = null,
-    [property: JsonPropertyName("inlineData")] GeminiInlineData? InlineData = null
+    [property: JsonPropertyName("inlineData")] GeminiInlineData? InlineData = null,
+    [property: JsonPropertyName("fileData")] GeminiFileData? FileData = null
+);
+
+public record GeminiFileData(
+    [property: JsonPropertyName("mimeType")] string MimeType,
+    [property: JsonPropertyName("fileUri")] string FileUri
+);
+
+public record GeminiFileUploadResponse(
+    [property: JsonPropertyName("file")] GeminiFileObject? File = null
+);
+
+public record GeminiFileObject(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("displayName")] string? DisplayName = null,
+    [property: JsonPropertyName("mimeType")] string? MimeType = null,
+    [property: JsonPropertyName("sizeBytes")] string? SizeBytes = null,
+    [property: JsonPropertyName("uri")] string? Uri = null,
+    [property: JsonPropertyName("state")] string? State = null
 );
 
 public record GeminiInlineData(
