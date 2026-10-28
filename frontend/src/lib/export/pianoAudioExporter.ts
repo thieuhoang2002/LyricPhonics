@@ -2,11 +2,12 @@
  * src/lib/export/pianoAudioExporter.ts
  *
  * Client-Side Piano Audio Renderer using Web Audio OfflineAudioContext.
- * Renders high-fidelity acoustic piano arrangement with Concert Hall Convolution Reverb
+ * Renders high-fidelity Yamaha C5 Concert Grand Piano with Concert Hall Convolution Reverb
  * directly to 16-bit PCM .WAV.
  */
 
 import type { PianoTranscriptionResult } from '@/types/piano';
+import { pianoPlayer } from '@/lib/audio/soundfontPlayer';
 
 /**
  * Encodes an AudioBuffer into standard 16-bit PCM WAV binary format.
@@ -75,7 +76,7 @@ function audioBufferToWav(buffer: AudioBuffer): ArrayBuffer {
 /**
  * Creates a Concert Hall impulse response inside an OfflineAudioContext.
  */
-function createOfflineConcertHallImpulse(ctx: OfflineAudioContext, duration = 2.4, decay = 2.2): AudioBuffer {
+function createOfflineConcertHallImpulse(ctx: OfflineAudioContext, duration = 2.4, decay = 2.1): AudioBuffer {
   const sampleRate = ctx.sampleRate;
   const length = Math.floor(sampleRate * duration);
   const impulse = ctx.createBuffer(2, length, sampleRate);
@@ -93,6 +94,31 @@ function createOfflineConcertHallImpulse(ctx: OfflineAudioContext, duration = 2.
 }
 
 /**
+ * Finds the closest recorded Yamaha C5 anchor sample to a given MIDI pitch.
+ */
+function findClosestAnchorBuffer(
+  targetMidi: number,
+  buffers: Map<number, AudioBuffer>
+): { midi: number; buffer: AudioBuffer } | null {
+  if (buffers.size === 0) return null;
+
+  let bestAnchorMidi = -1;
+  let minDistance = 999;
+
+  for (const anchorMidi of Array.from(buffers.keys())) {
+    const dist = Math.abs(targetMidi - anchorMidi);
+    if (dist < minDistance) {
+      minDistance = dist;
+      bestAnchorMidi = anchorMidi;
+    }
+  }
+
+  if (bestAnchorMidi === -1) return null;
+  const buffer = buffers.get(bestAnchorMidi);
+  return buffer ? { midi: bestAnchorMidi, buffer } : null;
+}
+
+/**
  * Bounces the complete piano piece offline and returns a playable .wav Blob with concert hall reverb.
  */
 export async function renderPianoAudioWav(
@@ -103,6 +129,10 @@ export async function renderPianoAudioWav(
   if (!notes || notes.length === 0) {
     throw new Error('Không có nốt nhạc nào để render Audio.');
   }
+
+  // Ensure soundfont samples are loaded before rendering
+  await pianoPlayer.loadSoundFont();
+  const cachedBuffers = pianoPlayer.getAnchorBuffers();
 
   // Calculate total audio duration (add 3.5s tail for acoustic reverb decay)
   const lastNoteEndTime = notes.reduce(
@@ -134,7 +164,7 @@ export async function renderPianoAudioWav(
   dryBus.connect(masterCompressor);
 
   const reverbConvolver = offlineContext.createConvolver();
-  reverbConvolver.buffer = createOfflineConcertHallImpulse(offlineContext, 2.5, 2.1);
+  reverbConvolver.buffer = createOfflineConcertHallImpulse(offlineContext, 2.4, 2.1);
 
   const wetBus = offlineContext.createGain();
   wetBus.gain.setValueAtTime(0.38, 0);
@@ -143,11 +173,9 @@ export async function renderPianoAudioWav(
 
   // Schedule all piano notes
   for (const note of notes) {
-    const freq = 440 * Math.pow(2, (note.pitch - 69) / 12);
     const clampedVelocity = Math.max(1, Math.min(127, note.velocity || 80));
     const normalizedGain = (clampedVelocity / 127) * 0.45;
     const startTime = Math.max(0, note.startTime);
-    // Sustain pedal simulation: let notes ring out over 2.5s
     const sustainedDuration = Math.max(note.duration, 2.5);
 
     // 1. Dynamic Hammer Filter
@@ -164,42 +192,12 @@ export async function renderPianoAudioWav(
       panner.pan.setValueAtTime(stereoPan, startTime);
     }
 
-    // 3. Multi-Harmonic Oscillators
-    const osc1 = offlineContext.createOscillator();
-    osc1.type = 'triangle';
-    osc1.frequency.setValueAtTime(freq, startTime);
-
-    const osc2 = offlineContext.createOscillator();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(freq * 2, startTime);
-
-    const osc3 = offlineContext.createOscillator();
-    osc3.type = 'sine';
-    osc3.frequency.setValueAtTime(freq * 3, startTime);
-
     const noteGain = offlineContext.createGain();
-    const harmonicGain2 = offlineContext.createGain();
-    const harmonicGain3 = offlineContext.createGain();
-
-    // Hammer attack (5ms) & natural sustained decay
     noteGain.gain.setValueAtTime(0.0001, startTime);
     noteGain.gain.linearRampToValueAtTime(normalizedGain, startTime + 0.005);
     noteGain.gain.exponentialRampToValueAtTime(0.0001, startTime + sustainedDuration + 0.5);
 
-    harmonicGain2.gain.setValueAtTime(normalizedGain * 0.3, startTime);
-    harmonicGain2.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.8);
-
-    harmonicGain3.gain.setValueAtTime(normalizedGain * 0.12, startTime);
-    harmonicGain3.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.4);
-
-    osc1.connect(filter);
-    osc2.connect(harmonicGain2);
-    harmonicGain2.connect(filter);
-    osc3.connect(harmonicGain3);
-    harmonicGain3.connect(filter);
-
     filter.connect(noteGain);
-
     if (panner) {
       noteGain.connect(panner);
       panner.connect(dryBus);
@@ -209,13 +207,42 @@ export async function renderPianoAudioWav(
       noteGain.connect(wetBus);
     }
 
-    osc1.start(startTime);
-    osc2.start(startTime);
-    osc3.start(startTime);
+    const anchor = findClosestAnchorBuffer(note.pitch, cachedBuffers);
 
-    osc1.stop(startTime + sustainedDuration + 0.55);
-    osc2.stop(startTime + sustainedDuration + 0.55);
-    osc3.stop(startTime + sustainedDuration + 0.55);
+    if (anchor) {
+      // Use real Yamaha C5 acoustic sample
+      const source = offlineContext.createBufferSource();
+      source.buffer = anchor.buffer;
+      const semitoneOffset = note.pitch - anchor.midi;
+      source.playbackRate.value = Math.pow(2, semitoneOffset / 12);
+
+      source.connect(filter);
+      source.start(startTime);
+      source.stop(startTime + sustainedDuration + 0.55);
+    } else {
+      // Physical modeling fallback
+      const freq = 440 * Math.pow(2, (note.pitch - 69) / 12);
+      const osc1 = offlineContext.createOscillator();
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(freq, startTime);
+
+      const osc2 = offlineContext.createOscillator();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(freq * 2, startTime);
+
+      const harmonicGain2 = offlineContext.createGain();
+      harmonicGain2.gain.setValueAtTime(normalizedGain * 0.3, startTime);
+      harmonicGain2.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.8);
+
+      osc1.connect(filter);
+      osc2.connect(harmonicGain2);
+      harmonicGain2.connect(filter);
+
+      osc1.start(startTime);
+      osc2.start(startTime);
+      osc1.stop(startTime + sustainedDuration + 0.55);
+      osc2.stop(startTime + sustainedDuration + 0.55);
+    }
   }
 
   onProgress?.(30);
