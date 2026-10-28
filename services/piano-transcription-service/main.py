@@ -212,11 +212,11 @@ async def transcribe_audio(file: UploadFile = File(...)):
     temp_out_midi = temp_in_path + ".mid"
 
     try:
-        from piano_transcription_inference import load_audio
+        import librosa
         model = get_transcriptor()
 
-        # Load audio at 32000Hz (ByteDance native sample rate)
-        audio, _ = load_audio(temp_in_path, sr=32000, mono=True)
+        # Load audio at 32000Hz using standard librosa.load
+        audio, _ = librosa.load(temp_in_path, sr=32000, mono=True)
 
         # Transcribe audio to MIDI file
         print(f"[*] Đang phiên âm tệp '{file.filename}' bằng ByteDance CRNN...")
