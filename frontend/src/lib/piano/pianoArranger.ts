@@ -150,20 +150,42 @@ export function generatePianoArrangement(
     }
   }
 
-  // 2. TẠO GIAI ĐIỆU MELODY (TAY PHẢI)
+  // 2. TẠO GIAI ĐIỆU MELODY (TAY PHẢI) - LỌC ĐƠN ÂM SẠCH TINH
   if (hands === 'both' || hands === 'tune') {
     if (originalMelody.length > 0) {
-      // Dùng melody gốc, chuẩn hóa lại độ nảy và dynamic velocity
-      for (const m of originalMelody) {
-        if (m.startTime < totalDuration) {
-          notes.push({
-            ...m,
-            hand: 'right',
-            pitch: Math.max(60, Math.min(96, m.pitch)),
-            noteName: getNoteName(Math.max(60, Math.min(96, m.pitch))),
-            velocity: Math.max(70, Math.min(105, m.velocity || 85)),
-          });
+      // Sắp xếp và lọc đơn âm (Monophonic): Mỗi thời điểm chỉ giữ 1 nốt giai điệu cao nhất, loại bỏ hoàn toàn tạp âm
+      const sortedMelody = [...originalMelody].sort((a, b) => a.startTime - b.startTime || b.pitch - a.pitch);
+      let lastMelodyEnd = -1;
+      let prevPitch = 64;
+      let curFinger = 3;
+
+      for (const m of sortedMelody) {
+        if (m.startTime >= totalDuration) continue;
+        if (m.pitch < 58 || m.pitch > 96) continue; // Dải cao độ giọng hát thực tế
+
+        // Tránh nốt đè nhau quá dày (<80ms)
+        if (m.startTime < lastMelodyEnd - 0.05) continue;
+
+        // Tính thế tay ngón đàn tự nhiên cho Right Hand
+        if (m.pitch > prevPitch) {
+          curFinger = Math.min(5, curFinger + 1);
+        } else if (m.pitch < prevPitch) {
+          curFinger = Math.max(1, curFinger - 1);
         }
+        prevPitch = m.pitch;
+
+        const dur = Math.max(0.12, Math.min(2.5, m.duration));
+        notes.push({
+          ...m,
+          hand: 'right',
+          pitch: m.pitch,
+          noteName: getNoteName(m.pitch),
+          startTime: Math.round(m.startTime * 1000) / 1000,
+          duration: Math.round(dur * 1000) / 1000,
+          velocity: Math.max(80, Math.min(110, m.velocity || 92)),
+          finger: curFinger,
+        });
+        lastMelodyEnd = m.startTime + dur;
       }
     } else {
       // Nếu chưa có melody, tự động dệt đường giai điệu cantabile bay bổng theo vòng hợp âm
@@ -209,7 +231,7 @@ function addNote(
 }
 
 /**
- * BALLAD: Rải ngón Arpeggio 1-5-8-10 lượn sóng du dương
+ * BALLAD: Chuẩn Mockin.app (Phách 1: Bass ngón 5, Phách 2: Chùm hợp âm 4 ngón 4-3-2-1, Phách 3: Bass lướt, Phách 4: Chùm hợp âm)
  */
 function generateBalladPattern(
   notes: PianoNoteEvent[],
@@ -218,28 +240,34 @@ function generateBalladPattern(
   beatSec: number,
   t: ChordToneInfo
 ) {
-  const step = beatSec * 0.5; // Mỗi nốt cách nhau nửa phách (nốt móc đơn)
   let cur = startT;
   const end = startT + dur;
 
-  // Lặp lại chuỗi arpeggio: Root -> 5th -> 8ve -> 9th/10th -> 8ve -> 5th -> ...
-  const pattern = [
-    { p: t.rootPitch, v: 88, d: beatSec * 1.8, f: 5 },       // Bass nặng ngân dài
-    { p: t.fifthPitch, v: 66, d: beatSec * 0.7, f: 3 },      // Bậc 5
-    { p: t.octavePitch, v: 72, d: beatSec * 0.7, f: 1 },     // Bậc 8
-    { p: t.ninthPitch, v: 76, d: beatSec * 0.8, f: 2 },      // Nốt màu add9
-    { p: t.tenthPitch, v: 78, d: beatSec * 0.9, f: 1 },      // Bậc 10 lấp lánh
-    { p: t.ninthPitch, v: 68, d: beatSec * 0.6, f: 2 },
-    { p: t.octavePitch, v: 65, d: beatSec * 0.6, f: 1 },
-    { p: t.fifthPitch, v: 62, d: beatSec * 0.6, f: 3 },
-  ];
-
-  let pIdx = 0;
   while (cur < end - 0.05) {
-    const item = pattern[pIdx % pattern.length];
-    addNote(notes, item.p, cur, Math.min(item.d, end - cur), item.v, 'left', item.f);
-    cur += step;
-    pIdx++;
+    // Phách 1: Bass gốc trầm ngân sâu (Ngón 5 - Út)
+    addNote(notes, t.rootPitch, cur, beatSec * 1.5, 92, 'left', 5);
+
+    // Phách 2: Chùm hợp âm Ballad 4 ngón (Ngón 4, 3, 2, 1) - Chuẩn Mockin.app
+    if (cur + beatSec < end) {
+      addNote(notes, t.fifthPitch, cur + beatSec, beatSec * 0.85, 74, 'left', 4);
+      addNote(notes, t.seventhPitch ?? t.octavePitch, cur + beatSec, beatSec * 0.85, 76, 'left', 3);
+      addNote(notes, t.ninthPitch, cur + beatSec, beatSec * 0.85, 78, 'left', 2);
+      addNote(notes, t.tenthPitch, cur + beatSec, beatSec * 0.85, 82, 'left', 1);
+    }
+
+    // Phách 3: Nốt đệm trầm lướt (Bậc 5 hoặc Bass phụ)
+    if (cur + beatSec * 2 < end) {
+      addNote(notes, t.fifthPitch - 12, cur + beatSec * 2, beatSec * 0.9, 85, 'left', 5);
+    }
+
+    // Phách 4: Chùm hợp âm ngân nhẹ
+    if (cur + beatSec * 3 < end) {
+      addNote(notes, t.fifthPitch, cur + beatSec * 3, beatSec * 0.75, 68, 'left', 4);
+      addNote(notes, t.octavePitch, cur + beatSec * 3, beatSec * 0.75, 70, 'left', 2);
+      addNote(notes, t.tenthPitch, cur + beatSec * 3, beatSec * 0.75, 74, 'left', 1);
+    }
+
+    cur += beatSec * 4;
   }
 }
 
@@ -426,17 +454,17 @@ function generateCantabileMelody(
     const tones = parseChordTones(c.chord);
     const midLead = tones.rootPitch + 24; // Quãng 5 (C5 ~ 72)
 
-    // Tạo các nốt hát chính
+    // Tạo các nốt hát chính với thế ngón tự nhiên
     const melodySeq = [
-      { p: midLead + (tones.isMinor ? 3 : 4), offset: 0, d: beatSec * 1.2, v: 88 },
-      { p: midLead + 7, offset: beatSec * 1.0, d: beatSec * 0.8, v: 82 },
-      { p: midLead + 12, offset: beatSec * 2.0, d: beatSec * 1.5, v: 92 },
-      { p: midLead + (tones.isMinor ? 10 : 11), offset: beatSec * 3.2, d: beatSec * 0.7, v: 78 },
+      { p: midLead + (tones.isMinor ? 3 : 4), offset: 0, d: beatSec * 1.2, v: 88, f: 1 },
+      { p: midLead + 7, offset: beatSec * 1.0, d: beatSec * 0.8, v: 82, f: 2 },
+      { p: midLead + 12, offset: beatSec * 2.0, d: beatSec * 1.5, v: 92, f: 4 },
+      { p: midLead + (tones.isMinor ? 10 : 11), offset: beatSec * 3.2, d: beatSec * 0.7, v: 78, f: 3 },
     ];
 
     for (const m of melodySeq) {
       if (startT + m.offset < totalDuration) {
-        addNote(notes, m.p, startT + m.offset, m.d, m.v, 'right', 3);
+        addNote(notes, m.p, startT + m.offset, m.d, m.v, 'right', m.f);
       }
     }
   }

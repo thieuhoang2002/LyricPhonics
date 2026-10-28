@@ -224,8 +224,9 @@ export function PianoRollVisualizer({
       const pixelsPerSecond = waterfallHeight / visibleSeconds;
 
       const currentlyActivePitches = new Set<number>();
+      const activeNotesWithHand = new Map<number, 'left' | 'right'>();
 
-      // Render Falling Note Blocks
+      // Render Falling Note Blocks (Mockin.app-style Rounded Pills with Finger Badges)
       for (const note of arrangedResult.notes) {
         if (note.pitch < START_MIDI || note.pitch > END_MIDI) continue;
 
@@ -237,7 +238,7 @@ export function PianoRollVisualizer({
 
         const yBottom = waterfallHeight - noteStartOffset;
         const yTop = waterfallHeight - noteEndOffset;
-        const blockHeight = Math.max(8, yBottom - yTop);
+        const blockHeight = Math.max(12, yBottom - yTop);
 
         // Check if note is visible on screen
         if (yBottom < -20 || yTop > waterfallHeight + 20) continue;
@@ -250,49 +251,117 @@ export function PianoRollVisualizer({
 
         if (isCurrentlyStriking) {
           currentlyActivePitches.add(note.pitch);
+          activeNotesWithHand.set(note.pitch, note.hand);
           if (isPlayingRef.current && !triggeredNotesRef.current.has(noteUniqueId)) {
             triggeredNotesRef.current.add(noteUniqueId);
             pianoPlayer.playNote(note.pitch, note.velocity, note.duration);
           }
         }
 
-        // Color coding:
-        // Right hand: Amber / Golden Orange
-        // Left hand: Emerald / Aqua Cyan
         const isRight = note.hand === 'right';
         ctx.save();
 
+        // 1. Color Gradient & Shadows
+        // Right hand: Vivid Coral Orange / Red (#fb923c -> #ea580c)
+        // Left hand: Warm Golden Amber (#fbbf24 -> #d97706)
         const noteGrad = ctx.createLinearGradient(x, yTop, x, yBottom);
         if (isRight) {
-          noteGrad.addColorStop(0, '#fbbf24');
-          noteGrad.addColorStop(1, '#f59e0b');
+          noteGrad.addColorStop(0, '#fb923c');
+          noteGrad.addColorStop(1, '#ea580c');
+          ctx.strokeStyle = 'rgba(255, 237, 213, 0.45)';
+          ctx.shadowColor = 'rgba(234, 88, 12, 0.55)';
         } else {
-          noteGrad.addColorStop(0, '#34d399');
-          noteGrad.addColorStop(1, '#10b981');
+          noteGrad.addColorStop(0, '#fbbf24');
+          noteGrad.addColorStop(1, '#d97706');
+          ctx.strokeStyle = 'rgba(254, 240, 138, 0.45)';
+          ctx.shadowColor = 'rgba(245, 158, 11, 0.5)';
         }
 
         ctx.fillStyle = noteGrad;
-        ctx.shadowColor = isRight ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)';
-        ctx.shadowBlur = isCurrentlyStriking ? 14 : 4;
+        ctx.lineWidth = 1;
+        ctx.shadowBlur = isCurrentlyStriking ? 16 : 5;
 
-        // Rounded note rectangle
-        const radius = Math.min(4, w / 4);
+        // 2. Rounded Pill Shape (radius up to 8px)
+        const pillRadius = Math.min(8, Math.max(4, (w - 2) / 2));
         ctx.beginPath();
-        ctx.roundRect(x + 1, yTop, w - 2, blockHeight, radius);
+        ctx.roundRect(x + 1, yTop, w - 2, blockHeight, pillRadius);
         ctx.fill();
+        ctx.stroke();
 
-        // Note name label on the block
-        if (blockHeight > 16 && w > 14) {
-          ctx.fillStyle = '#0f172a';
-          ctx.font = 'bold 9px monospace';
+        // 3. Crisp Pitch Class Name (e.g. "Bb", "F#", "C", "Ab") at Top Half
+        const pitchClass = (note.noteName || midiToNoteName(note.pitch)).replace(/[0-9\-]/g, '');
+        const centerX = x + w / 2;
+
+        if (blockHeight >= 16 && w >= 10) {
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 3;
+          ctx.fillStyle = '#ffffff';
           ctx.textAlign = 'center';
-          ctx.fillText(note.noteName || midiToNoteName(note.pitch), x + w / 2, yBottom - 4);
+          ctx.textBaseline = 'middle';
+          ctx.font = `bold ${w < 16 ? '9px' : '11px'} system-ui, -apple-system, sans-serif`;
+
+          const textY = blockHeight >= 34 ? yTop + 12 : yTop + blockHeight / 2;
+          ctx.fillText(pitchClass, centerX, textY);
+          ctx.restore();
+        }
+
+        // 4. White Circular Finger Badge (1 - 5) at Bottom Half (Mockin.app signature)
+        if (blockHeight >= 32 && w >= 12 && note.finger) {
+          const badgeRadius = Math.min(6.5, Math.max(5, (w - 4) / 2));
+          const badgeCenterY = yBottom - badgeRadius - 4;
+
+          ctx.save();
+          // White circular badge background
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+          ctx.shadowBlur = 3;
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(centerX, badgeCenterY, badgeRadius, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Dark finger number inside
+          ctx.shadowColor = 'transparent';
+          ctx.fillStyle = '#0f172a';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = 'bold 9px system-ui, -apple-system, sans-serif';
+          ctx.fillText(String(note.finger), centerX, badgeCenterY);
+          ctx.restore();
         }
 
         ctx.restore();
       }
 
       activeNotesRef.current = currentlyActivePitches;
+
+      // ================================================================
+      // DRAW HAND RANGE BRACKETS ALONG STRIKE LINE (L / R INDICATORS)
+      // ================================================================
+      const bracketY = waterfallHeight - 3;
+      const leftEndKey = Math.floor(whiteKeyCount * 0.48);
+      const leftEndX = leftEndKey * whiteKeyWidth;
+
+      ctx.save();
+      // Left Hand Bracket (Golden Amber)
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.7)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(4, bracketY + 4);
+      ctx.lineTo(4, bracketY);
+      ctx.lineTo(leftEndX - 4, bracketY);
+      ctx.lineTo(leftEndX - 4, bracketY + 4);
+      ctx.stroke();
+
+      // Right Hand Bracket (Coral Orange)
+      ctx.strokeStyle = 'rgba(234, 88, 12, 0.7)';
+      ctx.beginPath();
+      ctx.moveTo(leftEndX + 4, bracketY + 4);
+      ctx.lineTo(leftEndX + 4, bracketY);
+      ctx.lineTo(width - 4, bracketY);
+      ctx.lineTo(width - 4, bracketY + 4);
+      ctx.stroke();
+      ctx.restore();
 
       // ================================================================
       // DRAW BOTTOM PIANO KEYBOARD (61 KEYS)
@@ -305,19 +374,24 @@ export function PianoRollVisualizer({
         if (isBlackKey(m)) continue;
 
         const kx = whiteIdx * whiteKeyWidth;
+        const hand = activeNotesWithHand.get(m);
         const isPressed = currentlyActivePitches.has(m);
 
-        ctx.fillStyle = isPressed ? '#fef3c7' : '#f8fafc';
+        if (isPressed) {
+          ctx.fillStyle = hand === 'right' ? '#fed7aa' : '#fef08a';
+        } else {
+          ctx.fillStyle = '#f8fafc';
+        }
         ctx.fillRect(kx, keyboardY, whiteKeyWidth, keyboardHeight);
 
         // Key border
-        ctx.strokeStyle = '#334155';
+        ctx.strokeStyle = isPressed ? (hand === 'right' ? '#ea580c' : '#d97706') : '#334155';
         ctx.lineWidth = 1;
         ctx.strokeRect(kx, keyboardY, whiteKeyWidth, keyboardHeight);
 
-        // Glow indicator if active
+        // Glow indicator bar at bottom if active
         if (isPressed) {
-          ctx.fillStyle = 'rgba(245, 158, 11, 0.6)';
+          ctx.fillStyle = hand === 'right' ? 'rgba(234, 88, 12, 0.9)' : 'rgba(245, 158, 11, 0.9)';
           ctx.fillRect(kx, keyboardY + keyboardHeight - 12, whiteKeyWidth, 12);
         }
 
@@ -344,9 +418,14 @@ export function PianoRollVisualizer({
 
         const kx = whiteIdx * whiteKeyWidth - whiteKeyWidth * 0.32;
         const kw = whiteKeyWidth * 0.64;
+        const hand = activeNotesWithHand.get(m);
         const isPressed = currentlyActivePitches.has(m);
 
-        ctx.fillStyle = isPressed ? '#d97706' : '#1e293b';
+        if (isPressed) {
+          ctx.fillStyle = hand === 'right' ? '#ea580c' : '#f59e0b';
+        } else {
+          ctx.fillStyle = '#1e293b';
+        }
         ctx.fillRect(kx, keyboardY, kw, blackKeyHeight);
 
         ctx.strokeStyle = '#020617';
@@ -354,7 +433,7 @@ export function PianoRollVisualizer({
         ctx.strokeRect(kx, keyboardY, kw, blackKeyHeight);
 
         if (isPressed) {
-          ctx.fillStyle = 'rgba(251, 191, 36, 0.8)';
+          ctx.fillStyle = hand === 'right' ? 'rgba(251, 146, 60, 0.9)' : 'rgba(251, 191, 36, 0.9)';
           ctx.fillRect(kx, keyboardY + blackKeyHeight - 8, kw, 8);
         }
       }
@@ -611,15 +690,15 @@ export function PianoRollVisualizer({
           className="w-full h-full block"
         />
 
-        {/* Legend overlays */}
+        {/* Legend overlays (Mockin.app style) */}
         <div className="absolute top-3 left-3 flex items-center gap-3 bg-zinc-900/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-zinc-800 text-[11px]">
           <div className="flex items-center gap-1.5 text-amber-400 font-medium">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block shadow-sm shadow-amber-400/50" />
-            Tay Phải (Lead)
+            Tay Trái (Backing / Hợp âm)
           </div>
-          <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block shadow-sm shadow-emerald-400/50" />
-            Tay Trái (Bass)
+          <div className="flex items-center gap-1.5 text-orange-500 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-500 inline-block shadow-sm shadow-orange-500/50" />
+            Tay Phải (Tune / Giai điệu)
           </div>
         </div>
       </div>
