@@ -66,7 +66,7 @@ export async function transcribeAudioToPiano(
 
   return {
     success: true,
-    result: data.result,
+    result: data.result || data.data,
     songCredits: data.songCredits,
   };
 }
