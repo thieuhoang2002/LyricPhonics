@@ -180,7 +180,8 @@ public static class PianoEndpoints
                 success = true,
                 message = "Đã chuyển đổi bản Piano Cover thành công!",
                 songCredits = Math.Max(0, remainingCredits),
-                data = result
+                data = result,
+                result = result
             });
         })
         .Accepts<IFormFile>("multipart/form-data")
