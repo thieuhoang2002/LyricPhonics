@@ -1,10 +1,11 @@
 <div align="center">
 
 # 🎵 LyricPhonics
-### Full-Stack AI Multimodal Audio Phonics Cover Engine & Synchronized Lyric Workspace
+### Full-Stack AI Multimodal Audio Phonics Cover Engine, Piano Studio & Synchronized Lyric Workspace
 
 [![.NET 8 LTS](https://img.shields.io/badge/.NET-8.0_LTS-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![Next.js 14](https://img.shields.io/badge/Next.js-14_App_Router-black?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![Version](https://img.shields.io/badge/Version-v0.5.0-success.svg)](CHANGELOG.md)
 [![C# 12](https://img.shields.io/badge/C%23-12-239120?logo=csharp&logoColor=white)](https://learn.microsoft.com/en-us/dotnet/csharp/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict_Mode-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Polly v8](https://img.shields.io/badge/Resilience-Polly_v8-blue)](https://github.com/App-vNext/Polly)
@@ -12,7 +13,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Contributing](https://img.shields.io/badge/Contributing-Welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-*Transcribe, phoneticize, and synchronize international songs (Chinese, Korean, Japanese, English, Thai) into natural phonetic lyrics with millisecond timestamps for instant cover singing and video editing.*
+*Transcribe, phoneticize, and synchronize international songs into natural phonetic lyrics for singing covers, and automatically transform any audio into expressive 2-hand Piano Cover arrangements with Synthesia falling notes, Standard MIDI (.mid), and lossless Audio (.wav) export.*
 
 [Technical Overview](docs/OVERVIEW.md) • [Contributing Guide](CONTRIBUTING.md) • [Report Bug](https://github.com/thieuhoang2002/LyricPhonics/issues)
 
@@ -83,12 +84,25 @@ Every recognized line is partitioned into three synchronized layers:
 ### 5. Native Speech Pronunciation
 - Integrated browser-native Web Speech Synthesis API allows users to click **`[🔊 Pronounce]`** to hear standard native pronunciation (Mandarin, Japanese, Korean, English) at 0.85x speed for practice.
 
-### 6. 1-Click Multi-Format Export
+### 6. 1-Click Multi-Format Lyric Export
 - **`.LRC`:** Standard karaoke file with `[mm:ss.xx]` tags for media players.
 - **`.SRT`:** Synchronized subtitle track ready to import into **CapCut** or **Adobe Premiere**.
 - **`.TXT`:** Clean lyric sheet for reading or printing.
 - **`Clipboard`:** Instant formatted copy with emojis.
-- **`Clipboard`:** Instant formatted copy with emojis.
+
+### 7. AI Piano Studio & Synthesia Waterfall Engine
+- **Concert Pianist Multi-Hand Arrangement:** Gemini Multimodal Audio model transcribes input songs into independent Left-Hand (Bass/Arpeggio) and Right-Hand (Lead Melody) notes with velocity (1-127) and suggested fingerings (1-5).
+- **60fps Canvas Waterfall Visualizer:** Smooth falling note visualizer inspired by Synthesia, featuring dual-hand color gradients (Gold/Amber for Melody, Emerald for Harmony) and dynamic 61-key piano keyboard illumination upon strike line intersection.
+- **Real-Time Floating Chords & Section Markers:** Automatic chord detection displayed via a floating glassmorphic badge, with interactive section chips (`Intro`, `Verse`, `Chorus`, `Outro`) for instant seek.
+- **Acoustic Grand Piano Synthesizer:** Real-time Web Audio API soundfont loader with physical modeling fallback.
+- **1-Click Binary MIDI (.mid) & Lossless Audio (.wav) Export:**
+  - Generates Standard MIDI File Type 1 (2-track: Conductor + Piano) directly in browser for import into FL Studio, Ableton Live, Logic Pro, or MuseScore.
+  - Bounces piano covers directly into 16-bit PCM `.wav` via `OfflineAudioContext`.
+- **Anti-Waste Credit Protection:** Shared credit pool with LyricPhonics; transaction-safe deduction occurs only upon verified AI completion.
+
+### 8. Gemini File API Streaming (Zero-LOH RAM)
+- Eliminates Large Object Heap (LOH) allocation and base64 expansion by streaming audio via Gemini Resumable File API.
+- Automatic server-side cleanup of temporary cloud audio objects upon completion.
 
 ---
 
@@ -106,21 +120,21 @@ LyricPhonics/
 ├── TESTING_PLAN.md            # Automated testing strategy
 │
 ├── frontend/                  # CLIENT INTERFACE (NEXT.JS 14 APP ROUTER)
-│   ├── src/app/               # Main application pages & layout
-│   ├── src/components/        # AudioDropzone, LyricView, AudioPlayerBar, ExportToolbar
+│   ├── src/app/               # Main application pages & mode switcher
+│   ├── src/components/        # AudioDropzone, LyricView, PianoRollVisualizer, PianoConfirmModal
 │   ├── src/hooks/             # useAudioPlayer (60fps), useLyricSync (O(log N))
-│   ├── src/lib/               # Export utilities (TXT, LRC, SRT), Security, Speech
+│   ├── src/lib/               # SoundFont player, MIDI/WAV exporter, Export utilities (LRC/SRT)
 │   └── package.json
 │
 └── backend/                   # SERVER ENGINE (ASP.NET CORE .NET 8 LTS)
     ├── LyricPhonics.sln       # Visual Studio Solution
     ├── src/
-    │   ├── LyricPhonics.Domain/          # Models (LyricLine, TranscriptionResult), Enums
-    │   ├── LyricPhonics.Application/     # ITranscriptionService, LrcService, BinarySearchService
-    │   ├── LyricPhonics.Infrastructure/  # GeminiTranscriptionService (Polly v8 Resilience)
-    │   └── LyricPhonics.Api/             # Minimal API Endpoints, Middleware, Swagger UI
+    │   ├── LyricPhonics.Domain/          # Models (LyricLine, PianoModels), Enums
+    │   ├── LyricPhonics.Application/     # ITranscriptionService, IPianoTranscriptionService, ILrcService
+    │   ├── LyricPhonics.Infrastructure/  # GeminiTranscriptionService, GeminiPianoTranscriptionService (File API)
+    │   └── LyricPhonics.Api/             # Minimal API Endpoints (/api/transcribe, /api/piano), Swagger UI
     └── tests/
-        └── LyricPhonics.Tests/           # xUnit Unit & Integration Tests (100% Pass)
+        └── LyricPhonics.Tests/           # xUnit Unit Tests (24/24 Passed, 100%)
 ```
 
 ---

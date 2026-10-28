@@ -60,3 +60,19 @@
 - [x] ✅ Auto-migration for PostgreSQL (Neon DB) tables on startup
 - [x] ✅ Admin Universe Portal with pricing tier CRUD and dynamic API key management
 - [x] ✅ Automated test suite pass rate: 21/21 xUnit tests (.NET 8) and 43/43 Vitest tests (Next.js) passing
+
+---
+
+## 🎹 Milestone 6: AI Piano Studio & MIDI Arrangement Suite (Sprint 6)
+*Goal: Transform any audio into expressive 2-hand piano arrangements with Synthesia waterfall visualizer and MIDI/WAV export.*
+
+- [x] ✅ Gemini File API Streaming migration (Zero-LOH buffer, stream rewind on fallback, auto-cleanup)
+- [x] ✅ Backend Clean Architecture: `PianoModels.cs`, `IPianoTranscriptionService`, `GeminiPianoTranscriptionService`
+- [x] ✅ Endpoint `POST /api/piano/transcribe` with JWT auth, credit verification, and strict file validation (`.mp3`, `.wav`, `.m4a` $\le$ 25MB)
+- [x] ✅ Transaction-safe credit deduction (1 credit deducted only upon verified AI completion)
+- [x] ✅ Web Audio Acoustic Grand Piano Synthesizer (`soundfontPlayer.ts`) with physical modeling fallback
+- [x] ✅ Interactive 60fps HTML5 Canvas waterfall visualizer with 61-key piano keyboard, real-time chords, and section chips
+- [x] ✅ Binary Standard MIDI File (SMF Type 1) 2-track generator (`midiExporter.ts`)
+- [x] ✅ Client-side lossless audio rendering to 16-bit PCM `.wav` (`pianoAudioExporter.ts`)
+- [x] ✅ Dual-field response normalization adapter preventing frontend undefined property crashes
+- [x] ✅ 100% Automated Test Pass: 24/24 xUnit tests (.NET 8) and 45/45 Vitest tests (Next.js)

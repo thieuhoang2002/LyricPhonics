@@ -22,10 +22,37 @@ Singers and content creators looking to cover popular international songs (Chine
   - **Tier 2 (Phonetic Cover Text):** Cadence-accurate Vietnamese phonetic transcription with natural tone marks for immediate cover singing.
   - **Tier 3 (Translation Text):** Poetic Vietnamese translation capturing song emotion.
 - A 60fps real-time synchronized karaoke workspace enables instant seek, micro-adjustments ($\pm 0.5s$), native speech pronunciation, and 1-click multi-format export (.TXT, .LRC, .SRT, Clipboard).
+- **Piano Studio & MIDI Workspace:** Converts any song into an expressive 2-hand piano arrangement with 60fps Synthesia waterfall canvas, real-time chords, section chips, and browser-native export for Standard MIDI (.mid Type 1) and Audio (.wav).
 
 ---
 
-## 🔄 2. End-to-End Data Flow
+## 🎹 2. Piano Studio & MIDI Architecture
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User / Creator
+    participant Web as Next.js Frontend
+    participant API as ASP.NET Core (.NET 8 Minimal API)
+    participant Gemini as Google Gemini File API (Streaming)
+    participant DB as Neon PostgreSQL
+
+    User->>Web: Selects audio file (.mp3/.wav/.m4a <= 25MB)
+    Web->>Web: Pre-check auth & credits, open PianoConfirmModal
+    User->>Web: Confirms 1 credit usage
+    Web->>API: POST /api/piano/transcribe (FormData + Bearer JWT)
+    API->>DB: Query user credits > 0 (No deduction yet)
+    API->>Gemini: Stream audio via Gemini Resumable File API
+    Gemini-->>API: Returns 2-hand notes, chords, sections, BPM
+    API->>Gemini: Delete temporary cloud audio file
+    API->>DB: DeductCreditAsync(1) upon success (Transaction-safe)
+    API-->>Web: HTTP 200 { success: true, result: PianoResult, songCredits }
+    Web->>User: Renders 60fps Canvas waterfall + 1-click MIDI & WAV download
+```
+
+---
+
+## 🔄 3. End-to-End Lyrics Data Flow
 
 ```mermaid
 sequenceDiagram

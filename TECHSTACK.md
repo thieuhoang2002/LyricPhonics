@@ -1,7 +1,7 @@
 # Technology Stack & Architecture Specification
 
 > **Project:** LyricPhonics (Full-Stack Clean Architecture Monorepo)  
-> **Version:** v0.3.0  
+> **Version:** v0.5.0  
 > **Backend:** ASP.NET Core .NET 8 LTS (C# 12)  
 > **Frontend:** Next.js 14 App Router (TypeScript Strict)  
 
@@ -44,6 +44,9 @@ graph TD
 | **Language** | **TypeScript Strict** | ^5.x | Strict mode (`strict: true`, zero `any`) for end-to-end type safety. |
 | **UI & Styling** | **Tailwind CSS + Lucide Icons** | ^3.4 / ^0.450 | Modern responsive dark-mode styling with intuitive musical controls. |
 | **Audio Sync** | **HTML5 Audio + rAF** | Native | 60fps `requestAnimationFrame` loop providing jitter-free karaoke highlighting. |
+| **Piano Synthesizer** | **Web Audio API + SoundFont** | Native | Polyphonic acoustic grand piano sampler (`midi-js-soundfonts`) with harmonic oscillator fallback. |
+| **Piano Roll Visualizer** | **HTML5 Canvas 2D** | Native | 60fps Synthesia waterfall falling notes with 61-key virtual keyboard and real-time chord display. |
+| **MIDI & Audio Export** | **Binary SMF Type 1 + OfflineAudioContext** | Native | Zero-dependency browser-side binary Standard MIDI (.mid) generator and 16-bit PCM .WAV renderer. |
 | **Speech** | **Web Speech Synthesis API** | Native | Zero-latency browser-native speech synthesis for standard pronunciation practice. |
 
 ---

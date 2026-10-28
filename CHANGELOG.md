@@ -14,6 +14,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Automated VietQR payment processing (SePay/Casso).
 - Direct audio extraction via TikTok and YouTube Shorts URLs.
 
+## [0.5.0] - 2026-10-28
+
+### Added & Enhanced
+- **AI Piano Studio & MIDI Arrangement Suite:**
+  - **Full-Stack Clean Architecture Extension:** Added `IPianoTranscriptionService`, `GeminiPianoTranscriptionService`, and `POST /api/piano/transcribe` minimal endpoint with JWT authentication and strict file validation (`.mp3`, `.wav`, `.m4a` $\le$ 25MB).
+  - **Expert Concert Arrangement:** Generates 2-hand note events (`hand: 0/1`, velocity, suggested fingerings 1-5), measure chords, structural song sections, BPM, and key signature.
+  - **60fps Synthesia Waterfall Visualizer:** Smooth HTML5 Canvas falling notes engine with dual-hand color palettes (Amber for Lead Melody, Emerald for Bass/Harmony) and dynamic 61-key virtual piano keyboard illumination.
+  - **Acoustic Grand Piano Synthesizer:** Real-time Web Audio API soundfont loader (`midi-js-soundfonts`) with harmonic oscillator physical fallback.
+  - **1-Click Binary MIDI (.mid) & Lossless Audio (.wav) Export:**
+    - Pure TypeScript Standard MIDI File (SMF Type 1) binary encoder with Conductor track and Piano track for DAWs (FL Studio, Ableton, Logic, Cubase) and notation software (MuseScore).
+    - Client-side offline audio bounce to 16-bit PCM `.wav` via `OfflineAudioContext`.
+  - **Anti-Waste Credit Flow:** Shared credit pool with LyricPhonics; modal confirmation with explicit safety reassurance and transaction-safe deduction only upon verified AI completion.
+  - **Payload Normalization Adapter:** Dual payload compatibility (`data` and `result`) with resilient property mapper preventing runtime crashes.
+- **Gemini File API Streaming Optimization:**
+  - Streamed upload migration for both lyrics transcription and piano arrangement, completely eliminating Large Object Heap (LOH) RAM buffering and base64 expansion.
+  - Automatic cloud cleanup of temporary media files (`DELETE files/{id}`) upon inference completion.
+  - Stream rewind protection (`Position = 0`) before retry fallback to prevent 0-byte payload transmission.
+
 ## [0.4.0] - 2026-10-18
 
 ### Added & Enhanced
