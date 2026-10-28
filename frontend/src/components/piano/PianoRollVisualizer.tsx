@@ -232,6 +232,11 @@ export function PianoRollVisualizer({
       const activeNotesWithHand = new Map<number, 'left' | 'right'>();
 
       // Render Falling Note Blocks (Mockin.app-style Rounded Pills with Finger Badges)
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, width, waterfallHeight);
+      ctx.clip();
+
       for (const note of arrangedResultRef.current.notes) {
         if (note.pitch < START_MIDI || note.pitch > END_MIDI) continue;
 
@@ -337,6 +342,7 @@ export function PianoRollVisualizer({
 
         ctx.restore();
       }
+      ctx.restore(); // Restore waterfall viewport clip
 
       activeNotesRef.current = currentlyActivePitches;
 

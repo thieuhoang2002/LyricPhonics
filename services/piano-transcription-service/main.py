@@ -87,33 +87,37 @@ def health_check():
 
 def extract_vocal_melody_notes(audio: np.ndarray, sr: int, min_duration: float = 0.18) -> List[PianoNoteEvent]:
     """Bóc tách đường giai điệu giọng hát bám sát từng âm tiết/ca từ (Syllable-aligned Vocal Melody Tracking).
-    Sử dụng bộ lọc Median Filter và phân đoạn âm tiết để triệt tiêu hoàn toàn rung giọng (vibrato) và tạp âm,
-    tạo ra các nốt piano ngân vang đúng theo từng chữ ca sĩ hát như Mockin.app.
+    Áp dụng bộ lọc Bandpass 180Hz - 1100Hz để loại bỏ hoàn toàn tiếng trống kick, 808 sub-bass và bass guitar,
+    chỉ giữ lại thanh âm ca sĩ, bám khít từng ca từ luyến láy như Mockin.app.
     """
-    print("[*] Đang bóc tách đường giai điệu ca sĩ bám sát từng ca từ (Syllable-Level Vocal Tracking)...")
+    print("[*] Đang lọc dải tần giọng hát (180Hz - 1100Hz) & bóc tách giai điệu ca sĩ...")
     try:
         import scipy.signal
 
-        # Bắt cao độ trong dải tần giọng hát C3 (130Hz) đến G5 (784Hz)
+        # 1. Lọc thông dải (Bandpass Filter) 180Hz - 1100Hz để triệt tiêu toàn bộ tiếng Bass/Kick/Trống trầm
+        sos = scipy.signal.butter(4, [180, 1100], btype='bandpass', fs=sr, output='sos')
+        vocal_audio = scipy.signal.sosfilt(sos, audio)
+
+        # 2. Dò tìm cao độ giọng hát trong dải thực tế của ca sĩ (G3 196Hz đến A5 880Hz)
         f0, voiced_flag, voiced_probs = librosa.pyin(
-            audio,
-            fmin=librosa.note_to_hz('C3'),
-            fmax=librosa.note_to_hz('G5'),
+            vocal_audio,
+            fmin=librosa.note_to_hz('G3'),
+            fmax=librosa.note_to_hz('A5'),
             sr=sr,
             hop_length=512,
             frame_length=2048
         )
         hop_sec = 512.0 / sr
 
-        # 1. Chuyển đổi f0 sang cao độ MIDI và lọc mượt Vibrato bằng Median Filter (~220ms window)
-        midi_pitches = np.array([librosa.hz_to_midi(freq) if (not np.isnan(freq) and freq > 50) else 0.0 for freq in f0])
+        # 3. Chuyển đổi f0 sang cao độ MIDI và lọc mượt Vibrato bằng Median Filter (~220ms window)
+        midi_pitches = np.array([librosa.hz_to_midi(freq) if (not np.isnan(freq) and freq > 150) else 0.0 for freq in f0])
         smoothed_midi = scipy.signal.medfilt(midi_pitches, kernel_size=7)
 
-        # 2. Gom các khung thanh âm liên tục thành từng chùm ca từ (Voiced Runs)
+        # 4. Gom các khung thanh âm liên tục thành từng chùm ca từ (Voiced Runs)
         runs = []
         cur_run = []
         for i in range(len(f0)):
-            if voiced_flag[i] and not np.isnan(f0[i]) and smoothed_midi[i] >= 36:
+            if voiced_flag[i] and not np.isnan(f0[i]) and smoothed_midi[i] >= 48:
                 cur_run.append((i, smoothed_midi[i]))
             else:
                 if cur_run:
@@ -124,7 +128,7 @@ def extract_vocal_melody_notes(audio: np.ndarray, sr: int, min_duration: float =
 
         notes: List[PianoNoteEvent] = []
 
-        # 3. Phân đoạn từng nốt theo cao độ ổn định của âm tiết (Syllable Note Plateaus)
+        # 5. Phân đoạn từng nốt theo cao độ ổn định của âm tiết (Syllable Note Plateaus)
         for run in runs:
             run_dur = len(run) * hop_sec
             if run_dur < min_duration:
@@ -139,12 +143,10 @@ def extract_vocal_melody_notes(audio: np.ndarray, sr: int, min_duration: float =
 
             for i, p in enumerate(run_pitches):
                 rounded_p = int(round(p))
-                # Phát hiện chuyển nốt ca từ rõ rệt (>= 1.5 semitones)
                 if len(seg_pitches) >= 5 and abs(rounded_p - np.median(seg_pitches)) >= 1.5:
                     seg_dur = round(len(seg_pitches) * hop_sec, 3)
                     if seg_dur >= min_duration:
                         note_pitch = int(round(np.median(seg_pitches)))
-                        # Đưa nốt hát lên dải quãng 4-5 chuẩn giai điệu Piano (60-84) để không đè vào bass tay trái
                         while note_pitch < 60:
                             note_pitch += 12
                         while note_pitch > 88:
@@ -189,27 +191,51 @@ def extract_vocal_melody_notes(audio: np.ndarray, sr: int, min_duration: float =
                         )
                     )
 
-        print(f"[OK] Bóc tách thành công {len(notes)} nốt giai điệu sạch tinh bám theo ca từ!")
+        print(f"[OK] Bóc tách thành công {len(notes)} nốt giai điệu giọng hát sạch tinh bám theo ca từ!")
         return notes
     except Exception as ex:
         print(f"[!] Warning: Lỗi khi chạy Syllable Vocal Tracking: {ex}")
         return []
 
 
+# Xây dựng ma trận mẫu hòa thanh chuẩn toán học (True Harmonic Chord Templates)
+CHORD_TEMPLATES: Dict[str, np.ndarray] = {}
+for _idx, _name in enumerate(NOTE_NAMES):
+    # Major (Root, 3, 5)
+    _maj = np.zeros(12)
+    _maj[_idx] = 1.0; _maj[(_idx + 4) % 12] = 1.0; _maj[(_idx + 7) % 12] = 1.0
+    CHORD_TEMPLATES[_name] = _maj / np.linalg.norm(_maj)
+
+    # Minor (Root, b3, 5)
+    _min = np.zeros(12)
+    _min[_idx] = 1.0; _min[(_idx + 3) % 12] = 1.0; _min[(_idx + 7) % 12] = 1.0
+    CHORD_TEMPLATES[f"{_name}m"] = _min / np.linalg.norm(_min)
+
+    # Minor 7th (Root, b3, 5, b7) - Chuẩn Pop Ballad
+    _m7 = np.zeros(12)
+    _m7[_idx] = 1.0; _m7[(_idx + 3) % 12] = 1.0; _m7[(_idx + 7) % 12] = 1.0; _m7[(_idx + 10) % 12] = 1.0
+    CHORD_TEMPLATES[f"{_name}m7"] = _m7 / np.linalg.norm(_m7)
+
+    # Major 7th (Root, 3, 5, 7)
+    _maj7 = np.zeros(12)
+    _maj7[_idx] = 1.0; _maj7[(_idx + 4) % 12] = 1.0; _maj7[(_idx + 7) % 12] = 1.0; _maj7[(_idx + 11) % 12] = 1.0
+    CHORD_TEMPLATES[f"{_name}maj7"] = _maj7 / np.linalg.norm(_maj7)
+
+
 def extract_chords_and_sections(audio: np.ndarray, sr: int, total_duration: float, bpm: int):
-    """Bóc tách vòng hợp âm tự nhiên và phân đoạn bài hát từ ma trận phổ Chroma CQT."""
-    print("[*] Đang phân tích vòng hợp âm hòa thanh (Chroma Harmonic Matrix)...")
+    """Bóc tách vòng hợp âm tự nhiên bằng ma trận phổ CQT Chroma đối sánh với mẫu hòa thanh chuẩn toán học."""
+    print("[*] Đang phân tích vòng hợp âm hòa thanh (True Chroma Correlation)...")
     chords: List[PianoChordSegment] = []
 
     if total_duration <= 0:
-        return chords, []
+        return chords, [], "C Major"
 
     try:
         chroma = librosa.feature.chroma_cqt(y=audio, sr=sr, hop_length=512)
         hop_sec = 512.0 / sr
-        # Khung phân tích hợp âm: 2 phách hoặc khoảng 1.5 - 2.0 giây
-        beat_sec = 60.0 / bpm if bpm > 0 else 0.75
-        window_sec = beat_sec * 2.0
+        beat_sec = 60.0 / bpm if bpm > 0 else 0.65
+        # Độ dài 1 ô nhịp chuẩn: 2 phách hoặc 4 phách (khoảng 2.0s - 2.6s)
+        window_sec = beat_sec * 4.0 if beat_sec < 0.55 else beat_sec * 2.0
         frames_per_window = max(1, int(round(window_sec / hop_sec)))
         num_windows = int(np.ceil(chroma.shape[1] / frames_per_window))
 
@@ -220,44 +246,47 @@ def extract_chords_and_sections(audio: np.ndarray, sr: int, total_duration: floa
                 break
 
             window_chroma = np.mean(chroma[:, start_frame:end_frame], axis=1)
-            root = int(np.argmax(window_chroma))
-            root_name = NOTE_NAMES[root]
+            norm = np.linalg.norm(window_chroma)
+            if norm > 0:
+                window_chroma = window_chroma / norm
 
-            # Kiểm tra âm bậc 3 thứ (+3) vs bậc 3 trưởng (+4)
-            minor_third = window_chroma[(root + 3) % 12]
-            major_third = window_chroma[(root + 4) % 12]
-            chord_name = f"{root_name}m" if minor_third > major_third else root_name
+            best_chord = "C"
+            best_score = -1.0
+            for c_name, c_vec in CHORD_TEMPLATES.items():
+                score = float(np.dot(window_chroma, c_vec))
+                if score > best_score:
+                    best_score = score
+                    best_chord = c_name
 
             t_start = round(start_frame * hop_sec, 2)
             t_end = min(total_duration, round(end_frame * hop_sec, 2))
 
             chords.append(
                 PianoChordSegment(
-                    chord=chord_name,
+                    chord=best_chord,
                     startTime=t_start,
                     endTime=t_end
                 )
             )
-        print(f"[OK] Đã nhận diện {len(chords)} ô nhịp hợp âm!")
+        print(f"[OK] Đã nhận diện {len(chords)} ô nhịp hợp âm chuẩn xác!")
     except Exception as ex:
         print(f"[!] Warning: Lỗi trích xuất Chroma ({ex}), sử dụng fallback.")
-        window_size = 2.0
+        window_size = 2.5
         t = 0.0
         while t < total_duration:
             next_t = min(total_duration, t + window_size)
             chords.append(PianoChordSegment(chord="C", startTime=round(t, 2), endTime=round(next_t, 2)))
             t = next_t
 
-    # Phát hiện điệu tính chủ đạo (Key Signature)
-    dominant_root = chords[0].chord if chords else "C Major"
+    dominant_root = chords[0].chord if chords else "A#m7"
 
     # Phân đoạn bài hát (Sections)
     sections: List[PianoSectionSegment] = []
     if total_duration <= 25:
         sections.append(PianoSectionSegment(name="Chorus", startTime=0.0, endTime=round(total_duration, 2)))
     else:
-        intro_end = min(8.0, total_duration * 0.15)
-        outro_start = max(intro_end + 10.0, total_duration * 0.82)
+        intro_end = min(6.0, total_duration * 0.12)
+        outro_start = max(intro_end + 10.0, total_duration * 0.85)
         sections.append(PianoSectionSegment(name="Intro", startTime=0.0, endTime=round(intro_end, 2)))
         sections.append(PianoSectionSegment(name="Chorus", startTime=round(intro_end, 2), endTime=round(outro_start, 2)))
         sections.append(PianoSectionSegment(name="Outro", startTime=round(outro_start, 2), endTime=round(total_duration, 2)))
@@ -284,12 +313,15 @@ async def transcribe_audio(file: UploadFile = File(...)):
         total_duration = round(len(audio) / 16000.0, 2)
         print(f"[*] Thời lượng chính xác: {total_duration} giây.")
 
-        # 1. Phát hiện BPM / Nhịp độ chuẩn
+        # 1. Phát hiện BPM / Nhịp độ chuẩn (Chuẩn hóa tự nhiên cho Ballad/Pop)
         try:
-            tempo, _ = librosa.beat.beat_track(y=audio, sr=16000)
-            bpm = int(round(float(tempo))) if tempo > 0 else 80
+            tempo, beats = librosa.beat.beat_track(y=audio, sr=16000)
+            raw_tempo = float(tempo[0] if isinstance(tempo, np.ndarray) else tempo)
+            bpm = int(round(raw_tempo / 2)) if raw_tempo > 140 else int(round(raw_tempo))
+            if bpm <= 40 or bpm >= 220:
+                bpm = 92
         except Exception:
-            bpm = 80
+            bpm = 92
         print(f"[*] Tempo phát hiện: {bpm} BPM")
 
         # 2. Bóc tách đường giai điệu giọng hát sạch tinh bằng PYIN
