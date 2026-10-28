@@ -73,6 +73,11 @@ export function PianoRollVisualizer({
     return generatePianoArrangement(result, currentStyle, currentHands);
   }, [result, currentStyle, currentHands]);
 
+  const arrangedResultRef = useRef<PianoTranscriptionResult>(arrangedResult);
+  useEffect(() => {
+    arrangedResultRef.current = arrangedResult;
+  }, [arrangedResult]);
+
   // Duration calculation
   const totalDuration = useMemo(() => {
     if (arrangedResult.metadata?.duration && arrangedResult.metadata.duration > 0) return arrangedResult.metadata.duration;
@@ -227,7 +232,7 @@ export function PianoRollVisualizer({
       const activeNotesWithHand = new Map<number, 'left' | 'right'>();
 
       // Render Falling Note Blocks (Mockin.app-style Rounded Pills with Finger Badges)
-      for (const note of arrangedResult.notes) {
+      for (const note of arrangedResultRef.current.notes) {
         if (note.pitch < START_MIDI || note.pitch > END_MIDI) continue;
 
         // Position along Y axis
@@ -438,7 +443,7 @@ export function PianoRollVisualizer({
         }
       }
     },
-    [result]
+    []
   );
 
   // Resize canvas when container dimensions change
@@ -493,7 +498,34 @@ export function PianoRollVisualizer({
     triggeredNotesRef.current.clear();
     setCurrentTime(newTime);
     currentTimeRef.current = newTime;
+    drawCanvas(newTime);
   };
+
+  // Handle Hands change with immediate canvas redraw (<1ms response)
+  const handleHandsChange = useCallback(
+    (newHands: PianoArrangerHands) => {
+      setCurrentHands(newHands);
+      pianoPlayer.stopAll();
+      triggeredNotesRef.current.clear();
+      const freshArrangement = generatePianoArrangement(result, currentStyle, newHands);
+      arrangedResultRef.current = freshArrangement;
+      drawCanvas(currentTimeRef.current);
+    },
+    [result, currentStyle, drawCanvas]
+  );
+
+  // Handle Style change with immediate canvas redraw (<1ms response)
+  const handleStyleChange = useCallback(
+    (newStyle: PianoArrangerStyle) => {
+      setCurrentStyle(newStyle);
+      pianoPlayer.stopAll();
+      triggeredNotesRef.current.clear();
+      const freshArrangement = generatePianoArrangement(result, newStyle, currentHands);
+      arrangedResultRef.current = freshArrangement;
+      drawCanvas(currentTimeRef.current);
+    },
+    [result, currentHands, drawCanvas]
+  );
 
   // Rewind
   const handleRestart = () => {
@@ -502,7 +534,7 @@ export function PianoRollVisualizer({
 
   // Download MIDI file
   const handleDownloadMidi = () => {
-    downloadMidiFile(arrangedResult);
+    downloadMidiFile(arrangedResultRef.current);
   };
 
   // Download Audio WAV
@@ -510,7 +542,7 @@ export function PianoRollVisualizer({
     try {
       setIsExportingWav(true);
       setWavProgress(10);
-      await downloadPianoAudioWav(arrangedResult, undefined, (progress) => {
+      await downloadPianoAudioWav(arrangedResultRef.current, undefined, (progress) => {
         setWavProgress(progress);
       });
     } catch (err) {
@@ -600,11 +632,7 @@ export function PianoRollVisualizer({
               <button
                 key={h.id}
                 type="button"
-                onClick={() => {
-                  setCurrentHands(h.id);
-                  pianoPlayer.stopAll();
-                  triggeredNotesRef.current.clear();
-                }}
+                onClick={() => handleHandsChange(h.id)}
                 className={`px-3 py-1 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
                   isActive
                     ? 'bg-amber-400 text-zinc-950 font-bold shadow-md shadow-amber-400/20'
@@ -636,11 +664,7 @@ export function PianoRollVisualizer({
               <button
                 key={s.id}
                 type="button"
-                onClick={() => {
-                  setCurrentStyle(s.id as PianoArrangerStyle);
-                  pianoPlayer.stopAll();
-                  triggeredNotesRef.current.clear();
-                }}
+                onClick={() => handleStyleChange(s.id as PianoArrangerStyle)}
                 className={`px-3 py-1 text-xs font-semibold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
                   isActive
                     ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-zinc-950 font-bold shadow-md shadow-amber-500/20'

@@ -85,10 +85,15 @@ def health_check():
     }
 
 
-def extract_vocal_melody_notes(audio: np.ndarray, sr: int, min_duration: float = 0.12) -> List[PianoNoteEvent]:
-    """Bóc tách đường giai điệu giọng hát (Lead Vocal Melody) bằng PYIN pitch tracking, loại bỏ hoàn toàn tạp âm và tiếng trống."""
-    print("[*] Đang bóc tách đường giai điệu ca sĩ (Vocal Pitch Tracking)...")
+def extract_vocal_melody_notes(audio: np.ndarray, sr: int, min_duration: float = 0.18) -> List[PianoNoteEvent]:
+    """Bóc tách đường giai điệu giọng hát bám sát từng âm tiết/ca từ (Syllable-aligned Vocal Melody Tracking).
+    Sử dụng bộ lọc Median Filter và phân đoạn âm tiết để triệt tiêu hoàn toàn rung giọng (vibrato) và tạp âm,
+    tạo ra các nốt piano ngân vang đúng theo từng chữ ca sĩ hát như Mockin.app.
+    """
+    print("[*] Đang bóc tách đường giai điệu ca sĩ bám sát từng ca từ (Syllable-Level Vocal Tracking)...")
     try:
+        import scipy.signal
+
         # Bắt cao độ trong dải tần giọng hát C3 (130Hz) đến G5 (784Hz)
         f0, voiced_flag, voiced_probs = librosa.pyin(
             audio,
@@ -99,57 +104,95 @@ def extract_vocal_melody_notes(audio: np.ndarray, sr: int, min_duration: float =
             frame_length=2048
         )
         hop_sec = 512.0 / sr
+
+        # 1. Chuyển đổi f0 sang cao độ MIDI và lọc mượt Vibrato bằng Median Filter (~220ms window)
+        midi_pitches = np.array([librosa.hz_to_midi(freq) if (not np.isnan(freq) and freq > 50) else 0.0 for freq in f0])
+        smoothed_midi = scipy.signal.medfilt(midi_pitches, kernel_size=7)
+
+        # 2. Gom các khung thanh âm liên tục thành từng chùm ca từ (Voiced Runs)
+        runs = []
+        cur_run = []
+        for i in range(len(f0)):
+            if voiced_flag[i] and not np.isnan(f0[i]) and smoothed_midi[i] >= 36:
+                cur_run.append((i, smoothed_midi[i]))
+            else:
+                if cur_run:
+                    runs.append(cur_run)
+                    cur_run = []
+        if cur_run:
+            runs.append(cur_run)
+
         notes: List[PianoNoteEvent] = []
 
-        cur_pitch: Optional[int] = None
-        cur_start: float = 0.0
+        # 3. Phân đoạn từng nốt theo cao độ ổn định của âm tiết (Syllable Note Plateaus)
+        for run in runs:
+            run_dur = len(run) * hop_sec
+            if run_dur < min_duration:
+                continue
 
-        for i, freq in enumerate(f0):
-            t = i * hop_sec
-            if np.isnan(freq) or freq < 50:
-                if cur_pitch is not None:
-                    dur = round(t - cur_start, 3)
-                    if dur >= min_duration:
+            run_indices = [x[0] for x in run]
+            run_pitches = [x[1] for x in run]
+            start_t = run_indices[0] * hop_sec
+
+            seg_pitches = []
+            seg_start_t = start_t
+
+            for i, p in enumerate(run_pitches):
+                rounded_p = int(round(p))
+                # Phát hiện chuyển nốt ca từ rõ rệt (>= 1.5 semitones)
+                if len(seg_pitches) >= 5 and abs(rounded_p - np.median(seg_pitches)) >= 1.5:
+                    seg_dur = round(len(seg_pitches) * hop_sec, 3)
+                    if seg_dur >= min_duration:
+                        note_pitch = int(round(np.median(seg_pitches)))
+                        # Đưa nốt hát lên dải quãng 4-5 chuẩn giai điệu Piano (60-84) để không đè vào bass tay trái
+                        while note_pitch < 60:
+                            note_pitch += 12
+                        while note_pitch > 88:
+                            note_pitch -= 12
+
                         notes.append(
                             PianoNoteEvent(
                                 id=f"m_{uuid.uuid4().hex[:8]}",
-                                midi=cur_pitch,
-                                noteName=midi_to_note_name(cur_pitch),
-                                startTime=round(cur_start, 3),
-                                duration=dur,
-                                velocity=92,
+                                midi=note_pitch,
+                                noteName=midi_to_note_name(note_pitch),
+                                startTime=round(seg_start_t, 3),
+                                duration=seg_dur,
+                                velocity=94,
                                 hand=0,
-                                finger=0
+                                finger=3
                             )
                         )
-                    cur_pitch = None
-            else:
-                midi = int(round(librosa.hz_to_midi(freq)))
-                if cur_pitch is None:
-                    cur_pitch = midi
-                    cur_start = t
-                elif abs(midi - cur_pitch) >= 1: # Chuyển nốt hát
-                    dur = round(t - cur_start, 3)
-                    if dur >= min_duration:
-                        notes.append(
-                            PianoNoteEvent(
-                                id=f"m_{uuid.uuid4().hex[:8]}",
-                                midi=cur_pitch,
-                                noteName=midi_to_note_name(cur_pitch),
-                                startTime=round(cur_start, 3),
-                                duration=dur,
-                                velocity=92,
-                                hand=0,
-                                finger=0
-                            )
-                        )
-                    cur_pitch = midi
-                    cur_start = t
+                    seg_pitches = [p]
+                    seg_start_t = run_indices[i] * hop_sec
+                else:
+                    seg_pitches.append(p)
 
-        print(f"[OK] Bóc tách thành công {len(notes)} nốt giai điệu sạch tinh!")
+            if seg_pitches:
+                seg_dur = round(len(seg_pitches) * hop_sec, 3)
+                if seg_dur >= min_duration:
+                    note_pitch = int(round(np.median(seg_pitches)))
+                    while note_pitch < 60:
+                        note_pitch += 12
+                    while note_pitch > 88:
+                        note_pitch -= 12
+
+                    notes.append(
+                        PianoNoteEvent(
+                            id=f"m_{uuid.uuid4().hex[:8]}",
+                            midi=note_pitch,
+                            noteName=midi_to_note_name(note_pitch),
+                            startTime=round(seg_start_t, 3),
+                            duration=seg_dur,
+                            velocity=94,
+                            hand=0,
+                            finger=3
+                        )
+                    )
+
+        print(f"[OK] Bóc tách thành công {len(notes)} nốt giai điệu sạch tinh bám theo ca từ!")
         return notes
     except Exception as ex:
-        print(f"[!] Warning: Lỗi khi chạy PYIN: {ex}")
+        print(f"[!] Warning: Lỗi khi chạy Syllable Vocal Tracking: {ex}")
         return []
 
 

@@ -150,10 +150,10 @@ export function generatePianoArrangement(
     }
   }
 
-  // 2. TẠO GIAI ĐIỆU MELODY (TAY PHẢI) - LỌC ĐƠN ÂM SẠCH TINH
+  // 2. TẠO GIAI ĐIỆU MELODY (TAY PHẢI) - BÁM SÁT TỪNG CA TỪ & ÂM TIẾT
   if (hands === 'both' || hands === 'tune') {
     if (originalMelody.length > 0) {
-      // Sắp xếp và lọc đơn âm (Monophonic): Mỗi thời điểm chỉ giữ 1 nốt giai điệu cao nhất, loại bỏ hoàn toàn tạp âm
+      // Sắp xếp theo thứ tự thời gian xuất hiện
       const sortedMelody = [...originalMelody].sort((a, b) => a.startTime - b.startTime || b.pitch - a.pitch);
       let lastMelodyEnd = -1;
       let prevPitch = 64;
@@ -161,28 +161,45 @@ export function generatePianoArrangement(
 
       for (const m of sortedMelody) {
         if (m.startTime >= totalDuration) continue;
-        if (m.pitch < 58 || m.pitch > 96) continue; // Dải cao độ giọng hát thực tế
 
-        // Tránh nốt đè nhau quá dày (<80ms)
-        if (m.startTime < lastMelodyEnd - 0.05) continue;
+        let pitch = m.pitch;
+        // Đưa cao độ vào quãng ngân vang đẹp nhất của Piano (C4 đến E6)
+        while (pitch < 60) pitch += 12;
+        while (pitch > 88) pitch -= 12;
 
-        // Tính thế tay ngón đàn tự nhiên cho Right Hand
-        if (m.pitch > prevPitch) {
+        // Tránh tạp âm bị chồng chéo trong khoảng thời gian siêu ngắn (<60ms)
+        if (m.startTime < lastMelodyEnd - 0.06) continue;
+
+        // Tính thế tay ngón đàn tự nhiên cho Right Hand (1: Ngón cái đến 5: Ngón út)
+        if (pitch > prevPitch) {
           curFinger = Math.min(5, curFinger + 1);
-        } else if (m.pitch < prevPitch) {
+        } else if (pitch < prevPitch) {
           curFinger = Math.max(1, curFinger - 1);
         }
-        prevPitch = m.pitch;
+        prevPitch = pitch;
 
-        const dur = Math.max(0.12, Math.min(2.5, m.duration));
+        // Căn chỉnh legato mượt mà: thu ngắn nốt trước nếu kéo dài chạm nốt sau
+        const lastRightNoteIdx = notes.findLastIndex((n) => n.hand === 'right');
+        if (lastRightNoteIdx !== -1) {
+          const prevRightNote = notes[lastRightNoteIdx];
+          if (prevRightNote.startTime + prevRightNote.duration > m.startTime) {
+            const adjustedDur = Math.max(0.12, m.startTime - prevRightNote.startTime - 0.02);
+            notes[lastRightNoteIdx] = {
+              ...prevRightNote,
+              duration: Math.round(adjustedDur * 1000) / 1000,
+            };
+          }
+        }
+
+        const dur = Math.max(0.15, Math.min(2.5, m.duration));
         notes.push({
           ...m,
           hand: 'right',
-          pitch: m.pitch,
-          noteName: getNoteName(m.pitch),
+          pitch,
+          noteName: getNoteName(pitch),
           startTime: Math.round(m.startTime * 1000) / 1000,
           duration: Math.round(dur * 1000) / 1000,
-          velocity: Math.max(80, Math.min(110, m.velocity || 92)),
+          velocity: Math.max(82, Math.min(112, m.velocity || 94)),
           finger: curFinger,
         });
         lastMelodyEnd = m.startTime + dur;
