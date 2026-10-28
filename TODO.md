@@ -63,16 +63,14 @@
 
 ---
 
-## 🎹 Milestone 6: AI Piano Studio & MIDI Arrangement Suite (Sprint 6)
-*Goal: Transform any audio into expressive 2-hand piano arrangements with Synthesia waterfall visualizer and MIDI/WAV export.*
+## 🎹 Milestone 6: Studio-Grade Piano AI & MIDI Arrangement Suite (Sprint 6 - In Development on `dev`)
+*Goal: Transform any audio into expressive piano arrangements with high-resolution onset/velocity/pedal transcription, authentic Yamaha C5 soundbank, and MIDI/WAV export.*
 
-- [x] ✅ Gemini File API Streaming migration (Zero-LOH buffer, stream rewind on fallback, auto-cleanup)
-- [x] ✅ Backend Clean Architecture: `PianoModels.cs`, `IPianoTranscriptionService`, `GeminiPianoTranscriptionService`
-- [x] ✅ Endpoint `POST /api/piano/transcribe` with JWT auth, credit verification, and strict file validation (`.mp3`, `.wav`, `.m4a` $\le$ 25MB)
-- [x] ✅ Transaction-safe credit deduction (1 credit deducted only upon verified AI completion)
-- [x] ✅ Web Audio Acoustic Grand Piano Synthesizer (`soundfontPlayer.ts`) with physical modeling fallback
-- [x] ✅ Interactive 60fps HTML5 Canvas waterfall visualizer with 61-key piano keyboard, real-time chords, and section chips
-- [x] ✅ Binary Standard MIDI File (SMF Type 1) 2-track generator (`midiExporter.ts`)
-- [x] ✅ Client-side lossless audio rendering to 16-bit PCM `.wav` (`pianoAudioExporter.ts`)
-- [x] ✅ Dual-field response normalization adapter preventing frontend undefined property crashes
-- [x] ✅ 100% Automated Test Pass: 24/24 xUnit tests (.NET 8) and 45/45 Vitest tests (Next.js)
+- [x] ✅ **Yamaha C5 Grand Piano Engine**: Integrated 30 authentic studio anchor samples (`frontend/public/audio/salamander/`), Concert Hall Convolution Reverb Matrix, Dynamic Velocity Filter (1.8kHz - 18kHz), and 3D Stereo Stage Panning
+- [x] ✅ **ByteDance AI Architecture**: Replaced legacy LLM prompt hallucination with high-resolution CRNN music transcription service (`services/piano-transcription-service/`) detecting microsecond onsets, 0-127 velocities, and sustain pedal events
+- [x] ✅ **Backend Clean Architecture Adapter**: Created `ByteDancePianoTranscriptionService.cs` in `LyricPhonics.Infrastructure` with Zero-LOH streaming and auto-detection of local AI service status
+- [x] ✅ **Interactive 60fps HTML5 Canvas waterfall visualizer** with 61/88-key piano keyboard, real-time chords, and section navigation
+- [x] ✅ **Binary Standard MIDI File (SMF Type 1) 2-track generator** (`midiExporter.ts`)
+- [x] ✅ **Client-side lossless audio rendering to 16-bit PCM `.wav`** (`pianoAudioExporter.ts`)
+- [x] ✅ **Branch Isolation Strategy**: `main` remains rock-solid production release deployed on Render; `dev` contains high-fidelity local studio Piano AI pipeline
+- [x] ✅ **100% Automated Test Pass**: 25/25 xUnit tests (.NET 8) and 45/45 Vitest tests (Next.js) passing cleanly
