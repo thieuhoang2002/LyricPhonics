@@ -113,9 +113,23 @@ export function generatePianoArrangement(
 
   // 1. DUYỆT TỪNG ĐOẠN HỢP ÂM ĐỂ TẠO ACCOMPANIMENT (TAY TRÁI)
   if (hands === 'both' || hands === 'backing') {
-    const chords = baseResult.chords.length > 0
+    // Gộp các phân đoạn hợp âm trùng nhau liên tiếp để nhịp điệu phát triển tự nhiên xuyên suốt ô nhịp
+    const rawChords = baseResult.chords.length > 0
       ? baseResult.chords
-      : [{ chord: 'C', startTime: 0, endTime: totalDuration, root: 'C', quality: 'Major' }];
+      : [{ chord: 'A#m7', startTime: 0, endTime: totalDuration, root: 'A#', quality: 'Minor' }];
+
+    const chords: PianoChordSegment[] = [];
+    for (const c of rawChords) {
+      if (chords.length > 0 && chords[chords.length - 1].chord === c.chord) {
+        const prev = chords[chords.length - 1];
+        chords[chords.length - 1] = {
+          ...prev,
+          endTime: Math.max(prev.endTime, c.endTime),
+        };
+      } else {
+        chords.push({ ...c });
+      }
+    }
 
     for (let cIdx = 0; cIdx < chords.length; cIdx++) {
       const chordSeg = chords[cIdx];

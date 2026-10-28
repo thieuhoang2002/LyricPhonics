@@ -28,6 +28,7 @@ import { generatePianoArrangement } from '@/lib/piano/pianoArranger';
 
 export interface PianoRollVisualizerProps {
   result: PianoTranscriptionResult;
+  audioUrl?: string | null;
   onReset?: () => void;
 }
 
@@ -45,8 +46,11 @@ function isBlackKey(midi: number): boolean {
 
 export function PianoRollVisualizer({
   result,
+  audioUrl,
   onReset,
 }: PianoRollVisualizerProps): React.JSX.Element {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isBandEnabled, setIsBandEnabled] = useState<boolean>(true);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -84,6 +88,19 @@ export function PianoRollVisualizer({
     const maxEnd = arrangedResult.notes.reduce((max, n) => Math.max(max, n.startTime + n.duration), 0);
     return Math.max(10, maxEnd + 2);
   }, [arrangedResult]);
+
+  // Synchronize audio element volume and playback speed
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = isBandEnabled ? 1.0 : 0.0;
+    }
+  }, [isBandEnabled]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackSpeed;
+    }
+  }, [playbackSpeed]);
 
   // Keep ref synchronized with state
   useEffect(() => {
@@ -128,9 +145,17 @@ export function PianoRollVisualizer({
       lastFrameTimeRef.current = timestamp;
 
       if (isPlayingRef.current) {
-        currentTimeRef.current += deltaTime * playbackSpeed;
+        if (audioRef.current && !audioRef.current.paused) {
+          currentTimeRef.current = audioRef.current.currentTime;
+        } else {
+          currentTimeRef.current += deltaTime * playbackSpeed;
+        }
         if (currentTimeRef.current >= totalDuration) {
           currentTimeRef.current = 0;
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+          }
           setIsPlaying(false);
           pianoPlayer.stopAll();
           triggeredNotesRef.current.clear();
@@ -495,7 +520,18 @@ export function PianoRollVisualizer({
   // Play / Pause Toggle
   const togglePlay = () => {
     pianoPlayer.getContext(); // Ensure AudioContext is activated
-    setIsPlaying((prev) => !prev);
+    if (isPlaying) {
+      audioRef.current?.pause();
+      setIsPlaying(false);
+      pianoPlayer.stopAll();
+    } else {
+      if (audioRef.current) {
+        audioRef.current.currentTime = currentTimeRef.current;
+        audioRef.current.playbackRate = playbackSpeed;
+        audioRef.current.play().catch(() => {});
+      }
+      setIsPlaying(true);
+    }
   };
 
   // Seek handler
@@ -504,6 +540,9 @@ export function PianoRollVisualizer({
     triggeredNotesRef.current.clear();
     setCurrentTime(newTime);
     currentTimeRef.current = newTime;
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+    }
     drawCanvas(newTime);
   };
 
@@ -567,6 +606,7 @@ export function PianoRollVisualizer({
 
   return (
     <div className="w-full flex flex-col space-y-4">
+      <audio ref={audioRef} src={audioUrl || undefined} preload="auto" />
       {/* Top Header & Floating Real-time Chord Badge */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-zinc-900/90 border border-zinc-800 rounded-2xl backdrop-blur-md">
         {/* Song info */}
@@ -650,6 +690,23 @@ export function PianoRollVisualizer({
             );
           })}
         </div>
+
+        {/* Band Mode (Nhạc gốc đi kèm chuẩn Mockin.app) */}
+        {audioUrl && (
+          <button
+            type="button"
+            onClick={() => setIsBandEnabled((prev) => !prev)}
+            className={`px-3 py-1 text-xs font-semibold rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
+              isBandEnabled
+                ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-zinc-950 font-bold shadow-md shadow-amber-500/20'
+                : 'bg-zinc-800/80 text-zinc-400 hover:text-white border border-zinc-700/60'
+            }`}
+            title="Bật/Tắt nhạc nền bài hát gốc (Band Mode chuẩn Mockin.app)"
+          >
+            <Volume2 className="w-3.5 h-3.5" />
+            <span>Band: {isBandEnabled ? 'ON' : 'OFF'}</span>
+          </button>
+        )}
 
         {/* Style Selector */}
         <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto scrollbar-none py-0.5">

@@ -74,6 +74,7 @@ export default function Home(): React.JSX.Element {
 
   // Piano Studio state
   const [selectedPianoFile, setSelectedPianoFile] = useState<File | null>(null);
+  const [pianoAudioUrl, setPianoAudioUrl] = useState<string | null>(null);
   const [isPianoConfirmModalOpen, setIsPianoConfirmModalOpen] = useState<boolean>(false);
   const [isProcessingPiano, setIsProcessingPiano] = useState<boolean>(false);
   const [pianoError, setPianoError] = useState<string | null>(null);
@@ -438,6 +439,7 @@ export default function Home(): React.JSX.Element {
         return;
       }
       setSelectedPianoFile(selectedFile);
+      setPianoAudioUrl(URL.createObjectURL(selectedFile));
       setIsPianoConfirmModalOpen(true);
     },
     [currentUser]
@@ -491,6 +493,7 @@ export default function Home(): React.JSX.Element {
   const handleResetPiano = useCallback(() => {
     setPianoResult(null);
     setSelectedPianoFile(null);
+    setPianoAudioUrl(null);
     setPianoError(null);
   }, []);
 
@@ -701,6 +704,7 @@ export default function Home(): React.JSX.Element {
           ) : (
             <PianoRollVisualizer
               result={pianoResult}
+              audioUrl={pianoAudioUrl}
               onReset={handleResetPiano}
             />
           )
