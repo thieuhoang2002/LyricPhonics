@@ -37,6 +37,10 @@ def midi_to_note_name(midi: int) -> str:
     name = NOTE_NAMES[midi % 12]
     return f"{name}{octave}"
 
+# Tối ưu hóa số luồng CPU cho PyTorch
+cpu_count = os.cpu_count() or 4
+torch.set_num_threads(cpu_count)
+
 # Lazy initialized model
 transcriptor = None
 device_name = "cuda" if torch.cuda.is_available() else "cpu"

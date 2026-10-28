@@ -54,7 +54,7 @@ public static class DependencyInjection
         // 2b. Đăng ký Typed HttpClient cho ByteDancePianoTranscriptionService
         services.AddHttpClient<IPianoTranscriptionService, ByteDancePianoTranscriptionService>(client =>
         {
-            client.Timeout = TimeSpan.FromMinutes(2);
+            client.Timeout = TimeSpan.FromMinutes(10);
         });
 
         // 3. Cấu hình PostgreSQL (Neon Serverless DB) với EF Core

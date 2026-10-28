@@ -44,7 +44,7 @@ public class ByteDancePianoTranscriptionService : IPianoTranscriptionService
         var baseUrl = _configuration["PianoService:Url"] ?? "http://localhost:8000";
         if (!baseUrl.EndsWith("/")) baseUrl += "/";
         _httpClient.BaseAddress = new Uri(baseUrl);
-        _httpClient.Timeout = TimeSpan.FromMinutes(2);
+        _httpClient.Timeout = TimeSpan.FromMinutes(10);
     }
 
     public async Task<PianoTranscriptionResult> TranscribePianoAsync(
