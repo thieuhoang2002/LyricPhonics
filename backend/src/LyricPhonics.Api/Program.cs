@@ -83,13 +83,14 @@ app.MapGet("/health", () => Results.Ok(new
 .WithTags("Health")
 .WithSummary("Kiểm tra trạng thái hoạt động (Health check ping)");
 
-// Đăng ký các endpoints bóc tách âm thanh, tái tạo phiên âm, quản lý bài hát, xác thực và admin
+// Đăng ký các endpoints bóc tách âm thanh, tái tạo phiên âm, quản lý bài hát, xác thực, piano và admin
 app.MapTranscribeEndpoints();
 app.MapPhonicsEndpoints();
 app.MapTrackEndpoints();
 app.MapAuthEndpoints();
 app.MapAdminEndpoints();
 app.MapPricingEndpoints();
+app.MapPianoEndpoints();
 
 // Tự động kiểm tra và khởi tạo bảng PostgreSQL (Neon DB) nếu đã cấu hình
 using (var scope = app.Services.CreateScope())

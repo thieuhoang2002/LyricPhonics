@@ -51,6 +51,22 @@ public static class DependencyInjection
             options.Retry.UseJitter = true; // Thêm độ lệch ngẫu nhiên để tránh hiện tượng dồn cục (Thundering Herd)
         });
 
+        // 2b. Đăng ký Typed HttpClient cho PianoTranscriptionService với Polly
+        services.AddHttpClient<IPianoTranscriptionService, GeminiPianoTranscriptionService>(client =>
+        {
+            client.Timeout = TimeSpan.FromMinutes(4);
+        })
+        .AddStandardResilienceHandler(options =>
+        {
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(90);
+            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(180);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(4);
+            options.Retry.MaxRetryAttempts = 2;
+            options.Retry.Delay = TimeSpan.FromSeconds(2);
+            options.Retry.BackoffType = Polly.DelayBackoffType.Exponential;
+            options.Retry.UseJitter = true;
+        });
+
         // 3. Cấu hình PostgreSQL (Neon Serverless DB) với EF Core
         string? connectionString = Environment.GetEnvironmentVariable("DATABASE_URL");
 

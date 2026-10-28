@@ -38,6 +38,12 @@ import {
 } from 'lucide-react';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { PricingModal } from '@/components/pricing/PricingModal';
+import { PianoDropzone } from '@/components/piano/PianoDropzone';
+import { PianoRollVisualizer } from '@/components/piano/PianoRollVisualizer';
+import { PianoConfirmModal } from '@/components/piano/PianoConfirmModal';
+import { transcribeAudioToPiano } from '@/lib/api/piano';
+import type { PianoTranscriptionResult } from '@/types/piano';
+import { SAMPLE_PIANO_RESULT } from '@/lib/piano/samplePianoData';
 import {
   fetchCurrentUser,
   getAuthToken,
@@ -62,6 +68,16 @@ export default function Home(): React.JSX.Element {
 
   // Global Target Language state
   const [targetLanguage, setTargetLanguage] = useState<SupportedLanguage>('vi');
+
+  // Mode switcher: 'lyrics' | 'piano'
+  const [activeTab, setActiveTab] = useState<'lyrics' | 'piano'>('lyrics');
+
+  // Piano Studio state
+  const [selectedPianoFile, setSelectedPianoFile] = useState<File | null>(null);
+  const [isPianoConfirmModalOpen, setIsPianoConfirmModalOpen] = useState<boolean>(false);
+  const [isProcessingPiano, setIsProcessingPiano] = useState<boolean>(false);
+  const [pianoError, setPianoError] = useState<string | null>(null);
+  const [pianoResult, setPianoResult] = useState<PianoTranscriptionResult | null>(null);
 
   // Storage states
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
@@ -407,6 +423,77 @@ export default function Home(): React.JSX.Element {
     setCurrentProjectId(null);
   }, [player]);
 
+  // Xử lý khi chọn file âm thanh cho Piano Studio
+  const handlePianoFileSelected = useCallback(
+    (selectedFile: File) => {
+      setPianoError(null);
+      if (!currentUser) {
+        setIsAuthModalOpen(true);
+        setPianoError('Vui lòng đăng nhập để sử dụng tính năng tạo bản phối Piano.');
+        return;
+      }
+      if (currentUser.songCredits <= 0) {
+        setIsPricingModalOpen(true);
+        setPianoError('Bạn đã sử dụng hết lượt tạo bài hát. Vui lòng nạp thêm gói để tiếp tục!');
+        return;
+      }
+      setSelectedPianoFile(selectedFile);
+      setIsPianoConfirmModalOpen(true);
+    },
+    [currentUser]
+  );
+
+  // Xác nhận chuyển đổi và gọi API Piano với cơ chế bảo toàn credit
+  const handleConfirmPiano = useCallback(async () => {
+    if (!selectedPianoFile) return;
+    const token = getAuthToken();
+    if (!token) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    setIsProcessingPiano(true);
+    setPianoError(null);
+
+    try {
+      const response = await transcribeAudioToPiano(selectedPianoFile, token);
+
+      if (!response.success || !response.result) {
+        if (response.error === 'OUT_OF_CREDITS') {
+          setIsPricingModalOpen(true);
+        }
+        throw new Error(response.message || response.error || 'Quá trình hòa âm Piano thất bại.');
+      }
+
+      // Cập nhật số credit mới sau khi thành công
+      if (typeof response.songCredits === 'number') {
+        const updatedCredits = response.songCredits;
+        setCurrentUser((prev) => (prev ? { ...prev, songCredits: updatedCredits } : prev));
+      }
+
+      setPianoResult(response.result);
+      setIsPianoConfirmModalOpen(false);
+      setSelectedPianoFile(null);
+    } catch (err) {
+      setPianoError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi tạo bản phối Piano.');
+    } finally {
+      setIsProcessingPiano(false);
+    }
+  }, [selectedPianoFile]);
+
+  // Mở bản phối Piano mẫu (River Flows in You)
+  const handleLoadPianoDemo = useCallback(() => {
+    setPianoResult(SAMPLE_PIANO_RESULT);
+    setPianoError(null);
+  }, []);
+
+  // Đổi bài Piano khác
+  const handleResetPiano = useCallback(() => {
+    setPianoResult(null);
+    setSelectedPianoFile(null);
+    setPianoError(null);
+  }, []);
+
   const hasLyrics = Boolean(transcription && transcription.lines.length > 0);
 
   return (
@@ -539,93 +626,174 @@ export default function Home(): React.JSX.Element {
         </div>
       </header>
 
+      {/* Mode Switcher Tabs */}
+      <div className="flex items-center justify-center pt-4 pb-2 bg-[#111112]">
+        <div className="flex items-center p-1 bg-[#18181b] rounded-2xl border border-zinc-800 shadow-inner">
+          <button
+            type="button"
+            onClick={() => setActiveTab('lyrics')}
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer ${
+              activeTab === 'lyrics'
+                ? 'bg-[#2836f7] text-white shadow-md shadow-[#2836f7]/25'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Mic className="w-4 h-4" />
+            <span>Lời & Phiên Âm Cover</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('piano')}
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer ${
+              activeTab === 'piano'
+                ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-zinc-950 font-bold shadow-md shadow-amber-500/25'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            <span>Piano Studio & MIDI</span>
+          </button>
+        </div>
+      </div>
+
       {/* Main Workspace Area */}
       <main className="flex-1 w-full max-w-5xl mx-auto p-4 md:p-6 pb-48 flex flex-col justify-center">
-        {!hasLyrics ? (
-          /* Upload & Empty View */
-          <div className="flex flex-col items-center justify-center my-auto py-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1 mb-6 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-xs font-medium">
-              <Sparkles className="w-3.5 h-3.5" />
-              {t.heroBadge}
+        {activeTab === 'piano' ? (
+          /* ================================================================ */
+          /* PIANO STUDIO WORKSPACE                                           */
+          /* ================================================================ */
+          !pianoResult ? (
+            <div className="flex flex-col items-center justify-center my-auto py-8">
+              <div className="inline-flex items-center gap-2 px-3 py-1 mb-5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs font-semibold">
+                <Sparkles className="w-3.5 h-3.5" />
+                AI Concert Pianist & Synthesia Arranger
+              </div>
+
+              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-white mb-3 text-center max-w-2xl">
+                Chuyển Bài Hát Thành{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-orange-400">
+                  Bản Phối Piano Nghệ Thuật
+                </span>
+              </h1>
+
+              <p className="text-sm md:text-base text-zinc-400 text-center max-w-xl mb-7 leading-relaxed">
+                Tự động bóc tách nốt 2 tay độc lập (Lead & Bass), trực quan hóa nốt rơi 60fps, nhận diện hợp âm, và tải file <strong className="text-amber-400">MIDI (.mid)</strong> & <strong className="text-amber-400">Audio (.wav)</strong> miễn phí.
+              </p>
+
+              <PianoDropzone
+                onFileSelected={handlePianoFileSelected}
+                isProcessing={isProcessingPiano}
+                error={pianoError}
+              />
+
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleLoadPianoDemo}
+                  className="px-4 py-2 text-xs font-semibold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Trải nghiệm ngay bản phối mẫu (River Flows in You)</span>
+                </button>
+              </div>
             </div>
-
-            <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-white mb-4 text-center max-w-2xl">
-              {t.heroTitlePrefix}{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500">
-                {t.heroTitleHighlight}
-              </span>
-            </h1>
-
-            <p className="text-sm md:text-base text-slate-400 text-center max-w-xl mb-8 leading-relaxed">
-              {t.heroDesc}
-            </p>
-
-            <AudioDropzone
-              onFileSelected={handleFileSelected}
-              isProcessing={isProcessing}
-              error={errorMessage}
+          ) : (
+            <PianoRollVisualizer
+              result={pianoResult}
+              onReset={handleResetPiano}
             />
-
-            <div className="mt-8 flex items-center gap-2 text-xs text-slate-500 bg-slate-900/40 px-4 py-2 rounded-xl border border-slate-800/60">
-              <Info className="w-3.5 h-3.5 text-cyan-400" />
-              <span>{t.emptyNotice}</span>
-            </div>
-          </div>
+          )
         ) : (
-          /* Lyrics Workspace View */
-          <div className="flex flex-col gap-4">
-            {/* Header info & Export Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900/40 border border-slate-800">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Music className="w-4 h-4 text-cyan-400" />
-                  <h2 className="text-lg font-bold text-white">
-                    {transcription?.metadata.title || file?.name || 'Now Playing'}
-                  </h2>
-                  {saveStatus && (
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                      {saveStatus}
+          /* ================================================================ */
+          /* LYRICS & PHONETICS WORKSPACE                                     */
+          /* ================================================================ */
+          !hasLyrics ? (
+            /* Upload & Empty View */
+            <div className="flex flex-col items-center justify-center my-auto py-10">
+              <div className="inline-flex items-center gap-2 px-3 py-1 mb-6 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-xs font-medium">
+                <Sparkles className="w-3.5 h-3.5" />
+                {t.heroBadge}
+              </div>
+
+              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-white mb-4 text-center max-w-2xl">
+                {t.heroTitlePrefix}{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500">
+                  {t.heroTitleHighlight}
+                </span>
+              </h1>
+
+              <p className="text-sm md:text-base text-slate-400 text-center max-w-xl mb-8 leading-relaxed">
+                {t.heroDesc}
+              </p>
+
+              <AudioDropzone
+                onFileSelected={handleFileSelected}
+                isProcessing={isProcessing}
+                error={errorMessage}
+              />
+
+              <div className="mt-8 flex items-center gap-2 text-xs text-slate-500 bg-slate-900/40 px-4 py-2 rounded-xl border border-slate-800/60">
+                <Info className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{t.emptyNotice}</span>
+              </div>
+            </div>
+          ) : (
+            /* Lyrics Workspace View */
+            <div className="flex flex-col gap-4">
+              {/* Header info & Export Actions */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900/40 border border-slate-800">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Music className="w-4 h-4 text-cyan-400" />
+                    <h2 className="text-lg font-bold text-white">
+                      {transcription?.metadata.title || file?.name || 'Now Playing'}
+                    </h2>
+                    {saveStatus && (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        {saveStatus}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {transcription?.lines.length} lines • Click any line to seek • Double click to edit lyrics & timing
+                  </p>
+                </div>
+
+                <div className="text-xs text-slate-500 font-mono">
+                  {transcription?.metadata.detectedLanguage && (
+                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                      Language: {transcription.metadata.detectedLanguage.toUpperCase()}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {transcription?.lines.length} lines • Click any line to seek • Double click to edit lyrics & timing
-                </p>
               </div>
 
-              <div className="text-xs text-slate-500 font-mono">
-                {transcription?.metadata.detectedLanguage && (
-                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                    Language: {transcription.metadata.detectedLanguage.toUpperCase()}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* 1-Click Export Toolbar */}
-            <ExportToolbar
-              lines={transcription?.lines || []}
-              metadata={transcription?.metadata}
-            />
-
-            {/* Synchronized Realtime Lyric List */}
-            <div className="mt-2">
-              <LyricView
+              {/* 1-Click Export Toolbar */}
+              <ExportToolbar
                 lines={transcription?.lines || []}
-                activeLineIndex={activeLineIndex}
-                language={transcription?.metadata.detectedLanguage}
-                onSeek={(time) => player.seek(time)}
-                onSelectForEdit={(line) => setEditingLine(line)}
-                autoScrollEnabled={autoScroll}
+                metadata={transcription?.metadata}
               />
+
+              {/* Synchronized Realtime Lyric List */}
+              <div className="mt-2">
+                <LyricView
+                  lines={transcription?.lines || []}
+                  activeLineIndex={activeLineIndex}
+                  language={transcription?.metadata.detectedLanguage}
+                  onSeek={(time) => player.seek(time)}
+                  onSelectForEdit={(line) => setEditingLine(line)}
+                  autoScrollEnabled={autoScroll}
+                />
+              </div>
             </div>
-          </div>
+          )
         )}
       </main>
 
       {/* Persistent Audio Player Bar */}
-      {audioUrl && (
+      {audioUrl && activeTab === 'lyrics' && (
         <AudioPlayerBar
           player={player}
           songTitle={transcription?.metadata.title || file?.name || 'Playing'}
@@ -667,6 +835,21 @@ export default function Home(): React.JSX.Element {
         isOpen={isPricingModalOpen}
         onClose={() => setIsPricingModalOpen(false)}
         userEmail={currentUser?.email}
+      />
+
+      {/* Modal Xác nhận trừ lượt & Bảo toàn Credit khi tạo bản phối Piano */}
+      <PianoConfirmModal
+        isOpen={isPianoConfirmModalOpen}
+        file={selectedPianoFile}
+        remainingCredits={currentUser?.songCredits ?? 0}
+        onConfirm={handleConfirmPiano}
+        onCancel={() => {
+          if (!isProcessingPiano) {
+            setIsPianoConfirmModalOpen(false);
+            setSelectedPianoFile(null);
+          }
+        }}
+        isProcessing={isProcessingPiano}
       />
     </div>
   );
