@@ -1,6 +1,7 @@
 """
 ByteDance High-Resolution Piano Transcription Microservice (FastAPI)
 Model: CRNN with Onsets, Offsets, Velocity, and Sustain Pedal
+Native Sample Rate: 16,000 Hz
 Paper: "High-resolution Piano Transcription with Pedals by Regressing Onsets and Offsets Times"
 Author: ByteDance AI Lab
 """
@@ -9,12 +10,16 @@ import os
 import tempfile
 import uuid
 from typing import List, Optional
-import mido
+import librosa
 import numpy as np
 import torch
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# Tối ưu hóa số luồng CPU cho PyTorch
+cpu_count = os.cpu_count() or 4
+torch.set_num_threads(cpu_count)
 
 app = FastAPI(
     title="ByteDance Piano Transcription AI Service",
@@ -36,10 +41,6 @@ def midi_to_note_name(midi: int) -> str:
     octave = (midi // 12) - 1
     name = NOTE_NAMES[midi % 12]
     return f"{name}{octave}"
-
-# Tối ưu hóa số luồng CPU cho PyTorch
-cpu_count = os.cpu_count() or 4
-torch.set_num_threads(cpu_count)
 
 # Lazy initialized model
 transcriptor = None
@@ -92,112 +93,72 @@ def health_check():
         "status": "healthy",
         "device": device_name,
         "model": "ByteDance CRNN (High-Resolution Onset/Offset with Sustain Pedal)",
+        "sample_rate": 16000,
         "cuda_available": torch.cuda.is_available()
     }
 
 
-def parse_midi_to_result(midi_path: str, default_title: str) -> PianoTranscriptionResult:
-    mid = mido.MidiFile(midi_path)
+def extract_chords_and_sections(audio: np.ndarray, sr: int, total_duration: float, bpm: int):
+    """Bóc tách vòng hợp âm và phân đoạn bài hát từ đặc trưng phổ âm tần (Chroma)"""
+    chords: List[PianoChordSegment] = []
     
-    ticks_per_beat = mid.ticks_per_beat
-    tempo = 500000  # Default 120 BPM (500000 microseconds per beat)
-    bpm = 120
+    if total_duration <= 0:
+        return chords, []
 
-    # Search for tempo in tracks
-    for track in mid.tracks:
-        for msg in track:
-            if msg.type == 'set_tempo':
-                tempo = msg.tempo
-                bpm = int(round(mido.tempo2bpm(tempo)))
+    # Tính phổ Chroma Constant-Q
+    try:
+        chroma = librosa.feature.chroma_cqt(y=audio, sr=sr, hop_length=512)
+        # Khung thời gian trung bình 2 giây
+        hop_sec = 512 / sr
+        frames_per_window = int(round(2.0 / hop_sec))
+        num_windows = int(np.ceil(chroma.shape[1] / frames_per_window))
+
+        for w in range(num_windows):
+            start_frame = w * frames_per_window
+            end_frame = min(chroma.shape[1], (w + 1) * frames_per_window)
+            if start_frame >= end_frame:
                 break
 
-    # Parse notes from MIDI tracks
-    notes: List[PianoNoteEvent] = []
-    active_notes = {}  # midi -> (start_time, velocity)
-    current_time_sec = 0.0
+            window_chroma = np.mean(chroma[:, start_frame:end_frame], axis=1)
+            root = int(np.argmax(window_chroma))
+            root_name = NOTE_NAMES[root]
 
-    for track in mid.tracks:
-        track_time_sec = 0.0
-        for msg in track:
-            track_time_sec += mido.tick2second(msg.time, ticks_per_beat, tempo)
-            
-            if msg.type == 'note_on' and msg.velocity > 0:
-                active_notes[msg.note] = (track_time_sec, msg.velocity)
-            elif (msg.type == 'note_off') or (msg.type == 'note_on' and msg.velocity == 0):
-                if msg.note in active_notes:
-                    start_sec, vel = active_notes.pop(msg.note)
-                    dur_sec = max(0.05, track_time_sec - start_sec)
-                    
-                    notes.append(
-                        PianoNoteEvent(
-                            id=f"n_{uuid.uuid4().hex[:8]}",
-                            midi=msg.note,
-                            noteName=midi_to_note_name(msg.note),
-                            startTime=round(start_sec, 3),
-                            duration=round(dur_sec, 3),
-                            velocity=int(vel),
-                            hand=0 if msg.note >= 60 else 1,
-                            finger=0
-                        )
-                    )
+            # Kiểm tra âm bậc 3 thứ (+3) vs bậc 3 trưởng (+4)
+            minor_third = window_chroma[(root + 3) % 12]
+            major_third = window_chroma[(root + 4) % 12]
+            chord_name = f"{root_name}m" if minor_third > major_third else root_name
 
-    # Sort notes strictly by startTime
-    notes.sort(key=lambda n: (n.startTime, n.midi))
-
-    total_duration = notes[-1].startTime + notes[-1].duration if notes else 0.0
-
-    # Estimate Chord Segments from Notes (group by 2.0s windows)
-    chords: List[PianoChordSegment] = []
-    if total_duration > 0:
-        window_size = 2.0
-        cur_t = 0.0
-        while cur_t < total_duration:
-            next_t = min(total_duration, cur_t + window_size)
-            # Find notes in this window
-            window_notes = [n.midi % 12 for n in notes if cur_t <= n.startTime < next_t]
-            if window_notes:
-                # Find most frequent pitch class
-                counts = np.bincount(window_notes, minlength=12)
-                root = int(np.argmax(counts))
-                root_name = NOTE_NAMES[root]
-                # Check for minor third (root + 3) vs major third (root + 4)
-                has_minor = counts[(root + 3) % 12] > 0
-                has_major = counts[(root + 4) % 12] > 0
-                chord_name = f"{root_name}m" if has_minor and not has_major else root_name
-            else:
-                chord_name = "C"
+            t_start = round(start_frame * hop_sec, 2)
+            t_end = min(total_duration, round(end_frame * hop_sec, 2))
 
             chords.append(
                 PianoChordSegment(
                     chord=chord_name,
-                    startTime=round(cur_t, 2),
-                    endTime=round(next_t, 2)
+                    startTime=t_start,
+                    endTime=t_end
                 )
             )
-            cur_t = next_t
+    except Exception as ex:
+        print(f"[!] Warning: Lỗi trích xuất Chroma ({ex}), sử dụng fallback.")
+        window_size = 2.5
+        t = 0.0
+        while t < total_duration:
+            next_t = min(total_duration, t + window_size)
+            chords.append(PianoChordSegment(chord="C", startTime=round(t, 2), endTime=round(next_t, 2)))
+            t = next_t
 
     # Sections
     sections: List[PianoSectionSegment] = []
-    if total_duration > 0:
-        if total_duration <= 30:
-            sections.append(PianoSectionSegment(name="Main Theme", startTime=0.0, endTime=round(total_duration, 2)))
-        else:
-            intro_end = min(15.0, total_duration * 0.2)
-            outro_start = max(intro_end + 10.0, total_duration * 0.8)
-            sections.append(PianoSectionSegment(name="Intro", startTime=0.0, endTime=round(intro_end, 2)))
-            sections.append(PianoSectionSegment(name="Theme", startTime=round(intro_end, 2), endTime=round(outro_start, 2)))
-            sections.append(PianoSectionSegment(name="Outro", startTime=round(outro_start, 2), endTime=round(total_duration, 2)))
+    if total_duration <= 25:
+        sections.append(PianoSectionSegment(name="Main Theme", startTime=0.0, endTime=round(total_duration, 2)))
+    else:
+        intro_end = min(8.0, total_duration * 0.15)
+        outro_start = max(intro_end + 10.0, total_duration * 0.82)
+        sections.append(PianoSectionSegment(name="Intro", startTime=0.0, endTime=round(intro_end, 2)))
+        sections.append(PianoSectionSegment(name="Chorus", startTime=round(intro_end, 2), endTime=round(outro_start, 2)))
+        sections.append(PianoSectionSegment(name="Outro", startTime=round(outro_start, 2), endTime=round(total_duration, 2)))
 
-    return PianoTranscriptionResult(
-        title=default_title,
-        artist="ByteDance AI Piano Cover",
-        keySignature="C Major",
-        bpm=bpm,
-        duration=round(total_duration, 2),
-        sections=sections,
-        chords=chords,
-        notes=notes
-    )
+    return chords, sections
 
 
 @app.post("/transcribe", response_model=PianoTranscriptionResult)
@@ -216,20 +177,66 @@ async def transcribe_audio(file: UploadFile = File(...)):
     temp_out_midi = temp_in_path + ".mid"
 
     try:
-        import librosa
         model = get_transcriptor()
 
-        # Load audio at 32000Hz using standard librosa.load
-        audio, _ = librosa.load(temp_in_path, sr=32000, mono=True)
+        # QUAN TRỌNG: Model ByteDance yêu cầu đúng sample_rate = 16000 Hz!
+        print(f"[*] Đang tải tệp '{file.filename}' tại 16000Hz (Native ByteDance SR)...")
+        audio, sr = librosa.load(temp_in_path, sr=16000, mono=True)
+        total_duration = round(len(audio) / 16000.0, 2)
+        print(f"[*] Thời lượng thực tế: {total_duration}s ({len(audio)} samples)")
 
-        # Transcribe audio to MIDI file
+        # Tính toán Tempo / BPM chuẩn xác từ nhịp bài hát
+        try:
+            tempo, _ = librosa.beat.beat_track(y=audio, sr=16000)
+            bpm = int(round(float(tempo))) if tempo > 0 else 85
+        except Exception:
+            bpm = 85
+
+        # Phiên âm nốt nhạc bằng mô hình ByteDance High-Resolution CRNN
         print(f"[*] Đang phiên âm tệp '{file.filename}' bằng ByteDance CRNN...")
-        model.transcribe(audio, temp_out_midi)
+        transcribed_dict = model.transcribe(audio, temp_out_midi)
         print(f"[OK] Phiên âm hoàn tất! Xuất MIDI sang: {temp_out_midi}")
 
-        # Parse MIDI into PianoTranscriptionResult
-        result = parse_midi_to_result(temp_out_midi, default_title=title)
-        return result
+        # Trích xuất note events trực tiếp từ model (chuẩn mili-giây, không bị lỗi delta-tick)
+        est_notes = transcribed_dict.get('est_note_events', [])
+        notes: List[PianoNoteEvent] = []
+
+        for n in est_notes:
+            onset = float(n['onset_time'])
+            offset = float(n['offset_time'])
+            dur = max(0.08, offset - onset)
+            pitch = int(n['midi_note'])
+            vel = int(n.get('velocity', 80))
+
+            notes.append(
+                PianoNoteEvent(
+                    id=f"n_{uuid.uuid4().hex[:8]}",
+                    midi=pitch,
+                    noteName=midi_to_note_name(pitch),
+                    startTime=round(onset, 3),
+                    duration=round(dur, 3),
+                    velocity=vel,
+                    hand=0 if pitch >= 60 else 1,
+                    finger=0
+                )
+            )
+
+        # Sắp xếp nốt theo thời gian
+        notes.sort(key=lambda x: (x.startTime, x.midi))
+
+        # Trích xuất hợp âm và phân đoạn
+        chords, sections = extract_chords_and_sections(audio, 16000, total_duration, bpm)
+
+        return PianoTranscriptionResult(
+            title=title,
+            artist="ByteDance AI Piano Cover",
+            keySignature="C Major",
+            bpm=bpm,
+            duration=total_duration,
+            sections=sections,
+            chords=chords,
+            notes=notes
+        )
 
     except Exception as e:
         print(f"[!] Lỗi khi phiên âm: {str(e)}")

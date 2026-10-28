@@ -11,6 +11,19 @@
 export type PianoHand = 'left' | 'right';
 
 /**
+ * Accompaniment style pattern for the virtual arranger engine.
+ */
+export type PianoArrangerStyle = 'ballad' | 'canon' | 'pop' | 'slow_12_8' | 'waltz' | 'bolero';
+
+/**
+ * Hands mode for the piano performance:
+ * - 'both': Right hand melody + Left hand accompaniment
+ * - 'backing': Left hand chord/arpeggio accompaniment only (for singing along)
+ * - 'tune': Right hand melody only
+ */
+export type PianoArrangerHands = 'both' | 'backing' | 'tune';
+
+/**
  * Individual piano note event arranged for 2 hands with finger hints.
  */
 export interface PianoNoteEvent {

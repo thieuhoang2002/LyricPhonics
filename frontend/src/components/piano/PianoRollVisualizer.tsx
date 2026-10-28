@@ -12,11 +12,19 @@ import {
   Sparkles,
   Volume2,
   FileDown,
+  Sliders,
 } from 'lucide-react';
-import type { PianoTranscriptionResult, PianoNoteEvent, PianoSectionSegment } from '@/types/piano';
+import type {
+  PianoTranscriptionResult,
+  PianoNoteEvent,
+  PianoSectionSegment,
+  PianoArrangerStyle,
+  PianoArrangerHands,
+} from '@/types/piano';
 import { pianoPlayer, midiToNoteName } from '@/lib/audio/soundfontPlayer';
 import { downloadMidiFile } from '@/lib/export/midiExporter';
 import { downloadPianoAudioWav } from '@/lib/export/pianoAudioExporter';
+import { generatePianoArrangement } from '@/lib/piano/pianoArranger';
 
 export interface PianoRollVisualizerProps {
   result: PianoTranscriptionResult;
@@ -49,6 +57,10 @@ export function PianoRollVisualizer({
   const [wavProgress, setWavProgress] = useState<number>(0);
   const [activeSection, setActiveSection] = useState<PianoSectionSegment | null>(null);
 
+  // Virtual Arranger Mode States (Mockin.app-style)
+  const [currentStyle, setCurrentStyle] = useState<PianoArrangerStyle>('ballad');
+  const [currentHands, setCurrentHands] = useState<PianoArrangerHands>('both');
+
   // Playback reference trackers
   const isPlayingRef = useRef<boolean>(false);
   const currentTimeRef = useRef<number>(0);
@@ -56,12 +68,17 @@ export function PianoRollVisualizer({
   const activeNotesRef = useRef<Set<number>>(new Set());
   const triggeredNotesRef = useRef<Set<string>>(new Set());
 
+  // Dynamically re-arrange notes whenever Style or Hands changes (instant <1ms response)
+  const arrangedResult = useMemo(() => {
+    return generatePianoArrangement(result, currentStyle, currentHands);
+  }, [result, currentStyle, currentHands]);
+
   // Duration calculation
   const totalDuration = useMemo(() => {
-    if (result.metadata?.duration && result.metadata.duration > 0) return result.metadata.duration;
-    const maxEnd = result.notes.reduce((max, n) => Math.max(max, n.startTime + n.duration), 0);
+    if (arrangedResult.metadata?.duration && arrangedResult.metadata.duration > 0) return arrangedResult.metadata.duration;
+    const maxEnd = arrangedResult.notes.reduce((max, n) => Math.max(max, n.startTime + n.duration), 0);
     return Math.max(10, maxEnd + 2);
-  }, [result]);
+  }, [arrangedResult]);
 
   // Keep ref synchronized with state
   useEffect(() => {
@@ -209,7 +226,7 @@ export function PianoRollVisualizer({
       const currentlyActivePitches = new Set<number>();
 
       // Render Falling Note Blocks
-      for (const note of result.notes) {
+      for (const note of arrangedResult.notes) {
         if (note.pitch < START_MIDI || note.pitch > END_MIDI) continue;
 
         // Position along Y axis
@@ -406,7 +423,7 @@ export function PianoRollVisualizer({
 
   // Download MIDI file
   const handleDownloadMidi = () => {
-    downloadMidiFile(result);
+    downloadMidiFile(arrangedResult);
   };
 
   // Download Audio WAV
@@ -414,7 +431,7 @@ export function PianoRollVisualizer({
     try {
       setIsExportingWav(true);
       setWavProgress(10);
-      await downloadPianoAudioWav(result, undefined, (progress) => {
+      await downloadPianoAudioWav(arrangedResult, undefined, (progress) => {
         setWavProgress(progress);
       });
     } catch (err) {
@@ -439,10 +456,10 @@ export function PianoRollVisualizer({
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Music className="w-5 h-5 text-amber-400" />
-            {result.metadata.title || 'Bản Phối Piano'}
+            {arrangedResult.metadata.title || 'Bản Phối Piano'}
           </h2>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Điệu tính: <span className="text-amber-400 font-semibold">{result.metadata.keySignature || 'C Major'}</span> • Nhịp: <span className="text-zinc-200 font-mono">{result.metadata.bpm || 120} BPM</span> • {result.notes.length} nốt
+            Điệu tính: <span className="text-amber-400 font-semibold">{arrangedResult.metadata.keySignature || 'C Major'}</span> • Nhịp: <span className="text-zinc-200 font-mono">{arrangedResult.metadata.bpm || 120} BPM</span> • {arrangedResult.notes.length} nốt
           </p>
         </div>
 
@@ -481,6 +498,80 @@ export function PianoRollVisualizer({
             <FileDown className="w-3.5 h-3.5" />
             <span>{isExportingWav ? `Render ${wavProgress}%` : 'Tải Audio (.wav)'}</span>
           </button>
+        </div>
+      </div>
+
+      {/* Virtual Arranger Controls (Hands & Styles - Mockin.app style) */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 p-3 bg-zinc-900/80 border border-zinc-800 rounded-2xl backdrop-blur-sm">
+        {/* Hands Selector */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-xs font-semibold text-zinc-400 mr-1 flex items-center gap-1">
+            <Sliders className="w-3.5 h-3.5 text-amber-400" />
+            Hands:
+          </span>
+          {(
+            [
+              { id: 'both', label: 'Both (Cả 2 tay)' },
+              { id: 'backing', label: 'Backing (Chỉ đệm)' },
+              { id: 'tune', label: 'Tune (Giai điệu)' },
+            ] as const
+          ).map((h) => {
+            const isActive = currentHands === h.id;
+            return (
+              <button
+                key={h.id}
+                type="button"
+                onClick={() => {
+                  setCurrentHands(h.id);
+                  pianoPlayer.stopAll();
+                  triggeredNotesRef.current.clear();
+                }}
+                className={`px-3 py-1 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-amber-400 text-zinc-950 font-bold shadow-md shadow-amber-400/20'
+                    : 'bg-zinc-800/80 text-zinc-300 hover:bg-zinc-750 hover:text-white border border-zinc-700/60'
+                }`}
+              >
+                {h.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Style Selector */}
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto scrollbar-none py-0.5">
+          <span className="text-xs font-semibold text-zinc-400 mr-1 flex items-center gap-1 shrink-0">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            Style:
+          </span>
+          {[
+            { id: 'ballad', label: 'Ballad' },
+            { id: 'canon', label: 'Canon' },
+            { id: 'pop', label: 'Pop' },
+            { id: 'slow_12_8', label: '12/8 Slow' },
+            { id: 'waltz', label: 'Waltz 3/4' },
+            { id: 'bolero', label: 'Bolero' },
+          ].map((s) => {
+            const isActive = currentStyle === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  setCurrentStyle(s.id as PianoArrangerStyle);
+                  pianoPlayer.stopAll();
+                  triggeredNotesRef.current.clear();
+                }}
+                className={`px-3 py-1 text-xs font-semibold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-zinc-950 font-bold shadow-md shadow-amber-500/20'
+                    : 'bg-zinc-800/80 text-zinc-300 hover:bg-zinc-750 hover:text-white border border-zinc-700/60'
+                }`}
+              >
+                {s.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
