@@ -11,6 +11,7 @@ import {
   Layers,
   Sparkles,
   Volume2,
+  VolumeX,
   FileDown,
   Sliders,
 } from 'lucide-react';
@@ -50,7 +51,7 @@ export function PianoRollVisualizer({
   onReset,
 }: PianoRollVisualizerProps): React.JSX.Element {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isBandEnabled, setIsBandEnabled] = useState<boolean>(true);
+  const [isOriginalAudioEnabled, setIsOriginalAudioEnabled] = useState<boolean>(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -92,9 +93,9 @@ export function PianoRollVisualizer({
   // Synchronize audio element volume and playback speed
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = isBandEnabled ? 1.0 : 0.0;
+      audioRef.current.volume = isOriginalAudioEnabled ? 0.45 : 0.0;
     }
-  }, [isBandEnabled]);
+  }, [isOriginalAudioEnabled]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -145,12 +146,15 @@ export function PianoRollVisualizer({
       lastFrameTimeRef.current = timestamp;
 
       if (isPlayingRef.current) {
+        const prevT = currentTimeRef.current;
         if (audioRef.current && !audioRef.current.paused) {
           currentTimeRef.current = audioRef.current.currentTime;
         } else {
           currentTimeRef.current += deltaTime * playbackSpeed;
         }
-        if (currentTimeRef.current >= totalDuration) {
+        const curT = currentTimeRef.current;
+
+        if (curT >= totalDuration) {
           currentTimeRef.current = 0;
           if (audioRef.current) {
             audioRef.current.pause();
@@ -159,6 +163,19 @@ export function PianoRollVisualizer({
           setIsPlaying(false);
           pianoPlayer.stopAll();
           triggeredNotesRef.current.clear();
+        } else {
+          // Precise note scheduling: trigger any piano notes whose start time is reached
+          const currentNotes = arrangedResultRef.current.notes;
+          for (let i = 0; i < currentNotes.length; i++) {
+            const n = currentNotes[i];
+            if (n.startTime >= prevT - 0.03 && n.startTime <= curT + 0.04) {
+              const noteUniqueId = `${n.pitch}_${n.startTime.toFixed(3)}`;
+              if (!triggeredNotesRef.current.has(noteUniqueId)) {
+                triggeredNotesRef.current.add(noteUniqueId);
+                pianoPlayer.playNote(n.pitch, n.velocity, n.duration);
+              }
+            }
+          }
         }
         setCurrentTime(currentTimeRef.current);
       }
@@ -280,17 +297,11 @@ export function PianoRollVisualizer({
 
         const { x, w } = getNoteX(note.pitch);
 
-        // Sound trigger check when note crosses strike line
-        const noteUniqueId = `${note.pitch}_${note.startTime.toFixed(2)}`;
+        // Visual keyboard lighting check when note crosses strike line
         const isCurrentlyStriking = time >= note.startTime && time <= note.startTime + note.duration;
-
         if (isCurrentlyStriking) {
           currentlyActivePitches.add(note.pitch);
           activeNotesWithHand.set(note.pitch, note.hand);
-          if (isPlayingRef.current && !triggeredNotesRef.current.has(noteUniqueId)) {
-            triggeredNotesRef.current.add(noteUniqueId);
-            pianoPlayer.playNote(note.pitch, note.velocity, note.duration);
-          }
         }
 
         const isRight = note.hand === 'right';
@@ -518,8 +529,8 @@ export function PianoRollVisualizer({
   }, []);
 
   // Play / Pause Toggle
-  const togglePlay = () => {
-    pianoPlayer.getContext(); // Ensure AudioContext is activated
+  const togglePlay = async () => {
+    await pianoPlayer.ensureAudioReady();
     if (isPlaying) {
       audioRef.current?.pause();
       setIsPlaying(false);
@@ -528,6 +539,7 @@ export function PianoRollVisualizer({
       if (audioRef.current) {
         audioRef.current.currentTime = currentTimeRef.current;
         audioRef.current.playbackRate = playbackSpeed;
+        audioRef.current.volume = isOriginalAudioEnabled ? 0.45 : 0.0;
         audioRef.current.play().catch(() => {});
       }
       setIsPlaying(true);
@@ -538,6 +550,11 @@ export function PianoRollVisualizer({
   const handleSeek = (newTime: number) => {
     pianoPlayer.stopAll();
     triggeredNotesRef.current.clear();
+    for (const n of arrangedResultRef.current.notes) {
+      if (n.startTime < newTime - 0.04) {
+        triggeredNotesRef.current.add(`${n.pitch}_${n.startTime.toFixed(3)}`);
+      }
+    }
     setCurrentTime(newTime);
     currentTimeRef.current = newTime;
     if (audioRef.current) {
@@ -691,20 +708,20 @@ export function PianoRollVisualizer({
           })}
         </div>
 
-        {/* Band Mode (Nhạc gốc đi kèm chuẩn Mockin.app) */}
+        {/* Tùy chọn Bật/Tắt Âm thanh gốc (Vocal/Beat gốc) */}
         {audioUrl && (
           <button
             type="button"
-            onClick={() => setIsBandEnabled((prev) => !prev)}
+            onClick={() => setIsOriginalAudioEnabled((prev) => !prev)}
             className={`px-3 py-1 text-xs font-semibold rounded-xl flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
-              isBandEnabled
-                ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-zinc-950 font-bold shadow-md shadow-amber-500/20'
+              isOriginalAudioEnabled
+                ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold shadow-md shadow-emerald-500/25'
                 : 'bg-zinc-800/80 text-zinc-400 hover:text-white border border-zinc-700/60'
             }`}
-            title="Bật/Tắt nhạc nền bài hát gốc (Band Mode chuẩn Mockin.app)"
+            title="Bật/Tắt âm thanh file nhạc gốc khi phát"
           >
-            <Volume2 className="w-3.5 h-3.5" />
-            <span>Band: {isBandEnabled ? 'ON' : 'OFF'}</span>
+            {isOriginalAudioEnabled ? <Volume2 className="w-3.5 h-3.5 text-white" /> : <VolumeX className="w-3.5 h-3.5 text-zinc-400" />}
+            <span>Âm thanh gốc: {isOriginalAudioEnabled ? 'BẬT (45%)' : 'TẮT (Chỉ Đàn)'}</span>
           </button>
         )}
 
@@ -814,6 +831,30 @@ export function PianoRollVisualizer({
           <span className="text-xs font-mono text-zinc-400 min-w-[70px]">
             {formatSeconds(currentTime)} / {formatSeconds(totalDuration)}
           </span>
+
+          {/* Quick Toggle Âm thanh gốc */}
+          {audioUrl && (
+            <button
+              type="button"
+              onClick={() => setIsOriginalAudioEnabled((prev) => !prev)}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer border ${
+                isOriginalAudioEnabled
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/10'
+                  : 'bg-zinc-800/90 text-zinc-400 hover:text-zinc-200 border-zinc-700/70'
+              }`}
+              title="Bật/Tắt âm thanh file nhạc gốc"
+            >
+              {isOriginalAudioEnabled ? (
+                <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <VolumeX className="w-3.5 h-3.5 text-zinc-400" />
+              )}
+              <span className="hidden sm:inline">Nhạc gốc:</span>
+              <span className={isOriginalAudioEnabled ? 'text-emerald-300 font-bold' : ''}>
+                {isOriginalAudioEnabled ? 'BẬT' : 'TẮT'}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Center: Progress Slider */}

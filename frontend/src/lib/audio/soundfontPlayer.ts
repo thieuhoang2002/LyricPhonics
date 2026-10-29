@@ -90,6 +90,16 @@ export class PianoSoundfontPlayer {
 
   private sustainPedalEnabled: boolean = true;
 
+  public async ensureAudioReady(): Promise<void> {
+    const ctx = this.getContext();
+    if (ctx.state === 'suspended') {
+      await ctx.resume().catch(() => {});
+    }
+    if (!this.isLoaded && !this.isLoading) {
+      await this.loadSoundFont();
+    }
+  }
+
   public getContext(): AudioContext {
     if (!this.audioContext) {
       const AudioCtx =
@@ -110,7 +120,7 @@ export class PianoSoundfontPlayer {
    */
   private initMasterStudioBus(ctx: AudioContext): void {
     this.masterOutputGain = ctx.createGain();
-    this.masterOutputGain.gain.setValueAtTime(0.9, ctx.currentTime);
+    this.masterOutputGain.gain.setValueAtTime(1.35, ctx.currentTime);
 
     this.masterCompressor = ctx.createDynamicsCompressor();
     this.masterCompressor.threshold.setValueAtTime(-14, ctx.currentTime);
@@ -123,7 +133,7 @@ export class PianoSoundfontPlayer {
     this.convolverReverb.buffer = createConcertHallImpulse(ctx, 2.4, 2.1);
 
     this.dryGainNode = ctx.createGain();
-    this.dryGainNode.gain.setValueAtTime(0.85, ctx.currentTime);
+    this.dryGainNode.gain.setValueAtTime(1.1, ctx.currentTime);
 
     this.wetReverbGainNode = ctx.createGain();
     this.wetReverbGainNode.gain.setValueAtTime(0.38, ctx.currentTime); // 38% rich acoustic hall wetness
@@ -290,7 +300,7 @@ export class PianoSoundfontPlayer {
       setTimeout(() => this.activeVoices.delete(midi), (sustainedTail + 0.55) * 1000);
     } else {
       // Fallback: Multi-harmonic string simulation if samples are still loading
-      this.playAcousticHarmonicModel(ctx, midi, filter, now, sustainedTail);
+      this.playAcousticHarmonicModel(ctx, midi, filter, noteGain, now, sustainedTail);
     }
   }
 
@@ -298,6 +308,7 @@ export class PianoSoundfontPlayer {
     ctx: AudioContext,
     midi: number,
     targetInput: AudioNode,
+    noteGain: GainNode,
     now: number,
     sustainDuration: number
   ): void {
@@ -325,7 +336,7 @@ export class PianoSoundfontPlayer {
     osc1.stop(now + sustainDuration + 0.55);
     osc2.stop(now + sustainDuration + 0.55);
 
-    this.activeVoices.set(midi, { source: osc1, gain: targetInput as GainNode });
+    this.activeVoices.set(midi, { source: osc1, gain: noteGain });
   }
 
   public stopNote(midi: number): void {
