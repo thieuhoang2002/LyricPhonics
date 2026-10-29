@@ -109,7 +109,7 @@ export function generatePianoArrangement(
   const notes: PianoNoteEvent[] = [];
 
   // Lọc lấy melody gốc nếu có (Right hand)
-  const originalMelody = baseResult.notes.filter((n) => n.hand === 'right' || n.pitch >= 60);
+  const originalMelody = baseResult.notes.filter((n) => n.hand === 'right' || n.pitch >= 55);
 
   // 1. DUYỆT TỪNG ĐOẠN HỢP ÂM ĐỂ TẠO ACCOMPANIMENT (TAY TRÁI)
   if (hands === 'both' || hands === 'backing') {
@@ -177,9 +177,9 @@ export function generatePianoArrangement(
         if (m.startTime >= totalDuration) continue;
 
         let pitch = m.pitch;
-        // Đưa cao độ vào quãng ngân vang đẹp nhất của Piano (C4 đến E6)
-        while (pitch < 60) pitch += 12;
-        while (pitch > 88) pitch -= 12;
+        // Giữ nguyên cao độ trung thực của giai điệu, chỉ điều chỉnh nếu nằm ngoài dải phím đàn Piano (A0 đến C8)
+        while (pitch < 36) pitch += 12;
+        while (pitch > 96) pitch -= 12;
 
         // Tránh tạp âm bị chồng chéo trong khoảng thời gian siêu ngắn (<60ms)
         if (m.startTime < lastMelodyEnd - 0.06) continue;

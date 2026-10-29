@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 > nul
 echo ========================================================
-echo  LYRICPHONICS - BYTEDANCE PIANO AI SERVICE (PORT 8000)
+echo  LYRICPHONICS - SPOTIFY BASIC PITCH PIANO AI SERVICE (PORT 8000)
 echo ========================================================
 
 cd /d "%~dp0"
@@ -11,6 +11,6 @@ if not exist "pyenv\Scripts\python.exe" (
     call setup.bat
 )
 
-echo [*] Khởi động ByteDance High-Resolution Piano AI Service...
+echo [*] Khởi động Spotify Basic Pitch Piano AI Service...
 pyenv\Scripts\python.exe main.py
 pause

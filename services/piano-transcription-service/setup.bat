@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 > nul
 echo ========================================================
-echo  LYRICPHONICS - BYTEDANCE PIANO AI SERVICE SETUP
+echo  LYRICPHONICS - SPOTIFY BASIC PITCH PIANO AI SERVICE SETUP
 echo ========================================================
 
 cd /d "%~dp0"
