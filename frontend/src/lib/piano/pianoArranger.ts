@@ -169,16 +169,36 @@ export function generatePianoArrangement(
     if (originalMelody.length > 0) {
       // Sắp xếp theo thứ tự thời gian xuất hiện
       const sortedMelody = [...originalMelody].sort((a, b) => a.startTime - b.startTime || b.pitch - a.pitch);
+
+      // 1. Khử rung Vibrato: Gom các nốt cùng cao độ xuất hiện quá dồn dập thành 1 nốt ngân tự nhiên
+      const smoothedMelody: typeof sortedMelody = [];
+      for (const m of sortedMelody) {
+        if (smoothedMelody.length > 0) {
+          const prev = smoothedMelody[smoothedMelody.length - 1];
+          if (prev.pitch === m.pitch && m.startTime <= prev.startTime + prev.duration + 0.15) {
+            smoothedMelody[smoothedMelody.length - 1] = {
+              ...prev,
+              duration: Math.max(prev.duration, m.startTime + m.duration - prev.startTime),
+            };
+            continue;
+          }
+        }
+        smoothedMelody.push({ ...m });
+      }
+
+      // 2. Tự động dịch chuyển giọng Nam (quãng 3) lên Quãng 4/5 chuẩn Piano Mockin.app
+      const avgPitch = smoothedMelody.reduce((sum, n) => sum + n.pitch, 0) / (smoothedMelody.length || 1);
+      const pitchShift = avgPitch < 66 ? 12 : 0;
+
       let lastMelodyEnd = -1;
       let prevPitch = 64;
       let curFinger = 3;
 
-      for (const m of sortedMelody) {
+      for (const m of smoothedMelody) {
         if (m.startTime >= totalDuration) continue;
 
-        let pitch = m.pitch;
-        // Giữ nguyên cao độ trung thực của giai điệu, chỉ điều chỉnh nếu nằm ngoài dải phím đàn Piano (A0 đến C8)
-        while (pitch < 36) pitch += 12;
+        let pitch = m.pitch + pitchShift;
+        while (pitch < 48) pitch += 12;
         while (pitch > 96) pitch -= 12;
 
         // Tránh tạp âm bị chồng chéo trong khoảng thời gian siêu ngắn (<60ms)
@@ -205,7 +225,7 @@ export function generatePianoArrangement(
           }
         }
 
-        const dur = Math.max(0.15, Math.min(2.5, m.duration));
+        const dur = Math.max(0.16, Math.min(2.5, m.duration));
         notes.push({
           ...m,
           hand: 'right',
@@ -213,7 +233,7 @@ export function generatePianoArrangement(
           noteName: getNoteName(pitch),
           startTime: Math.round(m.startTime * 1000) / 1000,
           duration: Math.round(dur * 1000) / 1000,
-          velocity: Math.max(82, Math.min(112, m.velocity || 94)),
+          velocity: Math.max(82, Math.min(115, m.velocity || 94)),
           finger: curFinger,
         });
         lastMelodyEnd = m.startTime + dur;
@@ -275,27 +295,44 @@ function generateBalladPattern(
   const end = startT + dur;
 
   while (cur < end - 0.05) {
-    // Phách 1: Bass gốc trầm ngân sâu (Ngón 5 - Út)
-    addNote(notes, t.rootPitch, cur, beatSec * 1.5, 92, 'left', 5);
+    const step = beatSec * 0.5;
 
-    // Phách 2: Chùm hợp âm Ballad 4 ngón (Ngón 4, 3, 2, 1) - Chuẩn Mockin.app
-    if (cur + beatSec < end) {
-      addNote(notes, t.fifthPitch, cur + beatSec, beatSec * 0.85, 74, 'left', 4);
-      addNote(notes, t.seventhPitch ?? t.octavePitch, cur + beatSec, beatSec * 0.85, 76, 'left', 3);
-      addNote(notes, t.ninthPitch, cur + beatSec, beatSec * 0.85, 78, 'left', 2);
-      addNote(notes, t.tenthPitch, cur + beatSec, beatSec * 0.85, 82, 'left', 1);
+    // Phách 1: Bass trầm ngân sâu (Root, Ngón 5)
+    addNote(notes, t.rootPitch, cur, beatSec * 1.6, 84, 'left', 5);
+
+    // Phách 1.5: Bậc 5 (Fifth, Ngón 4)
+    if (cur + step < end) {
+      addNote(notes, t.fifthPitch, cur + step, beatSec * 1.2, 64, 'left', 4);
     }
 
-    // Phách 3: Nốt đệm trầm lướt (Bậc 5 hoặc Bass phụ)
-    if (cur + beatSec * 2 < end) {
-      addNote(notes, t.fifthPitch - 12, cur + beatSec * 2, beatSec * 0.9, 85, 'left', 5);
+    // Phách 2: Bậc 8 quãng 8 (Octave, Ngón 2)
+    if (cur + step * 2 < end) {
+      addNote(notes, t.octavePitch, cur + step * 2, beatSec * 1.2, 68, 'left', 2);
     }
 
-    // Phách 4: Chùm hợp âm ngân nhẹ
-    if (cur + beatSec * 3 < end) {
-      addNote(notes, t.fifthPitch, cur + beatSec * 3, beatSec * 0.75, 68, 'left', 4);
-      addNote(notes, t.octavePitch, cur + beatSec * 3, beatSec * 0.75, 70, 'left', 2);
-      addNote(notes, t.tenthPitch, cur + beatSec * 3, beatSec * 0.75, 74, 'left', 1);
+    // Phách 2.5: Bậc 10 ngân bay (Tenth / Third, Ngón 1)
+    if (cur + step * 3 < end) {
+      addNote(notes, t.tenthPitch, cur + step * 3, beatSec * 1.2, 72, 'left', 1);
+    }
+
+    // Phách 3: Lượn lại Bậc 8 (Octave, Ngón 2)
+    if (cur + step * 4 < end) {
+      addNote(notes, t.octavePitch, cur + step * 4, beatSec * 1.2, 62, 'left', 2);
+    }
+
+    // Phách 3.5: Lượn lại Bậc 5 (Fifth, Ngón 4)
+    if (cur + step * 5 < end) {
+      addNote(notes, t.fifthPitch, cur + step * 5, beatSec * 1.2, 60, 'left', 4);
+    }
+
+    // Phách 4: Vươn lên Bậc 10 (Tenth, Ngón 1)
+    if (cur + step * 6 < end) {
+      addNote(notes, t.tenthPitch, cur + step * 6, beatSec * 1.2, 66, 'left', 1);
+    }
+
+    // Phách 4.5: Trả về Bậc 8 (Octave, Ngón 2)
+    if (cur + step * 7 < end) {
+      addNote(notes, t.octavePitch, cur + step * 7, beatSec * 1.0, 60, 'left', 2);
     }
 
     cur += beatSec * 4;
@@ -316,28 +353,44 @@ function generateCanonPattern(
   const end = startT + dur;
 
   while (cur < end - 0.05) {
-    // Phách 1: Bass gốc trầm ngân sâu (Ngón 5 - Út)
-    addNote(notes, t.rootPitch, cur, beatSec * 1.5, 92, 'left', 5);
+    const step = beatSec * 0.5;
 
-    // Phách 2: Chùm hợp âm 4 ngón (Ngón 4, 3, 2, 1) - Chuẩn Mockin.app
-    if (cur + beatSec < end) {
-      addNote(notes, t.fifthPitch, cur + beatSec, beatSec * 0.85, 76, 'left', 4);
-      addNote(notes, t.seventhPitch ?? t.octavePitch, cur + beatSec, beatSec * 0.85, 78, 'left', 3);
-      addNote(notes, t.ninthPitch, cur + beatSec, beatSec * 0.85, 80, 'left', 2);
-      addNote(notes, t.tenthPitch, cur + beatSec, beatSec * 0.85, 84, 'left', 1);
+    // Phách 1: Bass Root
+    addNote(notes, t.rootPitch, cur, beatSec * 1.5, 86, 'left', 5);
+
+    // Phách 1.5: Fifth
+    if (cur + step < end) {
+      addNote(notes, t.fifthPitch, cur + step, beatSec * 1.2, 66, 'left', 4);
     }
 
-    // Phách 3: Bass lướt
-    if (cur + beatSec * 2 < end) {
-      addNote(notes, t.rootPitch + 12, cur + beatSec * 2, beatSec * 0.9, 86, 'left', 5);
+    // Phách 2: Tenth
+    if (cur + step * 2 < end) {
+      addNote(notes, t.tenthPitch, cur + step * 2, beatSec * 1.2, 72, 'left', 1);
     }
 
-    // Phách 4: Chùm hợp âm 4 ngón
-    if (cur + beatSec * 3 < end) {
-      addNote(notes, t.fifthPitch, cur + beatSec * 3, beatSec * 0.85, 74, 'left', 4);
-      addNote(notes, t.seventhPitch ?? t.octavePitch, cur + beatSec * 3, beatSec * 0.85, 76, 'left', 3);
-      addNote(notes, t.ninthPitch, cur + beatSec * 3, beatSec * 0.85, 78, 'left', 2);
-      addNote(notes, t.tenthPitch, cur + beatSec * 3, beatSec * 0.85, 82, 'left', 1);
+    // Phách 2.5: Octave
+    if (cur + step * 3 < end) {
+      addNote(notes, t.octavePitch, cur + step * 3, beatSec * 1.2, 68, 'left', 2);
+    }
+
+    // Phách 3: Root Octave
+    if (cur + step * 4 < end) {
+      addNote(notes, t.rootPitch + 12, cur + step * 4, beatSec * 1.5, 78, 'left', 3);
+    }
+
+    // Phách 3.5: Fifth
+    if (cur + step * 5 < end) {
+      addNote(notes, t.fifthPitch, cur + step * 5, beatSec * 1.2, 64, 'left', 4);
+    }
+
+    // Phách 4: Tenth
+    if (cur + step * 6 < end) {
+      addNote(notes, t.tenthPitch, cur + step * 6, beatSec * 1.2, 70, 'left', 1);
+    }
+
+    // Phách 4.5: Octave
+    if (cur + step * 7 < end) {
+      addNote(notes, t.octavePitch, cur + step * 7, beatSec * 1.0, 64, 'left', 2);
     }
 
     cur += beatSec * 4;

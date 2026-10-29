@@ -93,73 +93,76 @@ def analyze_chord_progression(
     sorted_notes: List[Tuple[float, float, int, float, any]],
     total_duration: float,
     bpm: int
-) -> Tuple[List[PianoChordSegment], str]:
-    """Phân tích vòng hợp âm chuẩn nhạc lý từ nốt bè trầm (Bass) và phổ hòa thanh trong từng ô nhịp."""
+) -> Tuple[List[PianoChordSegment], str, int]:
+    """Phân tích vòng hợp âm chuẩn xác dựa trên các điểm chuyển nốt bè trầm (Bass Movement)."""
     chords: List[PianoChordSegment] = []
     if total_duration <= 0:
-        return chords, "C Major"
+        return chords, "A#m", 72
 
-    beat_sec = 60.0 / bpm if bpm > 0 else 0.65
-    # Ô nhịp: 4 phách (nếu nhịp nhanh) hoặc 2 phách (nếu nhịp chậm), khoảng 2.0s - 2.8s
-    measure_len = beat_sec * 4.0 if beat_sec < 0.65 else beat_sec * 2.0
-    num_measures = int(np.ceil(total_duration / measure_len))
+    # 1. Trích xuất các nốt bè trầm (pitch < 55, thời lượng >= 0.22s)
+    bass_notes = [n for n in sorted_notes if n[2] < 55 and (n[1] - n[0]) >= 0.22]
 
-    prev_chord = "A#m7"
+    # 2. Tìm các ranh giới đổi hợp âm thực tế theo bước nốt bass
+    boundaries = [0.0]
+    cur_root = None
+    cur_t = 0.0
 
-    for m in range(num_measures):
-        t0 = round(m * measure_len, 2)
-        t1 = min(total_duration, round((m + 1) * measure_len, 2))
-        if t0 >= t1:
-            break
+    for b in bass_notes:
+        start, end, pitch, amp, _ = b
+        pc = pitch % 12
+        if cur_root is None:
+            cur_root = pc
+            cur_t = start
+        elif pc != cur_root and (start - cur_t) >= 1.6:
+            boundaries.append(round(start, 2))
+            cur_root = pc
+            cur_t = start
 
-        # Lấy các nốt vang lên trong ô nhịp [t0, t1]
-        active = [n for n in sorted_notes if (n[0] < t1 and n[1] > t0)]
-        bass_notes = [n for n in active if n[2] < 55]
+    boundaries.append(total_duration)
 
-        # Tính mật độ các bậc âm (Pitch Class Histogram)
+    for i in range(len(boundaries) - 1):
+        t0 = boundaries[i]
+        t1 = boundaries[i + 1]
+        active = [n for n in sorted_notes if n[0] < t1 and n[1] > t0]
+        bass_in_seg = [n for n in active if n[2] < 55]
+
         pc_hist = np.zeros(12)
         for n in active:
             overlap = min(t1, n[1]) - max(t0, n[0])
-            pc = n[2] % 12
-            pc_hist[pc] += overlap * n[3]
+            pc_hist[n[2] % 12] += overlap * n[3]
 
-        if bass_notes:
-            # Chọn nốt trầm có năng lượng tốt nhất
-            bass_notes.sort(key=lambda x: (x[2], -x[3]))
-            root_pc = bass_notes[0][2] % 12
-            root_name = NOTE_NAMES[root_pc]
-        elif np.sum(pc_hist) > 0:
-            root_pc = int(np.argmax(pc_hist))
-            root_name = NOTE_NAMES[root_pc]
+        if bass_in_seg:
+            bass_in_seg.sort(key=lambda x: (x[2], -x[3]))
+            root_pc = bass_in_seg[0][2] % 12
         else:
-            root_name = prev_chord.replace("m7", "").replace("maj7", "").replace("m", "").replace("7", "")
-            root_pc = NOTE_NAMES.index(root_name) if root_name in NOTE_NAMES else 10
+            root_pc = int(np.argmax(pc_hist))
 
-        # Phân biệt Trưởng (Major 3rd) hay Thứ (Minor 3rd)
+        root_name = NOTE_NAMES[root_pc]
         min3 = pc_hist[(root_pc + 3) % 12]
         maj3 = pc_hist[(root_pc + 4) % 12]
         is_minor = min3 >= maj3
-
-        # Phân biệt Hợp âm 7 (Minor 7th vs Major 7th)
         b7 = pc_hist[(root_pc + 10) % 12]
         maj7 = pc_hist[(root_pc + 11) % 12]
 
         if is_minor:
-            chord_name = f"{root_name}m7" if b7 > 0.1 else f"{root_name}m"
+            chord_name = f"{root_name}m7" if b7 > 0.08 else f"{root_name}m"
         else:
-            if maj7 > 0.1 and maj7 >= b7:
+            if maj7 > 0.08 and maj7 >= b7:
                 chord_name = f"{root_name}maj7"
-            elif b7 > 0.1:
+            elif b7 > 0.08:
                 chord_name = f"{root_name}7"
             else:
                 chord_name = root_name
 
-        prev_chord = chord_name
         chords.append(PianoChordSegment(chord=chord_name, startTime=t0, endTime=t1))
 
-    # Xác định giọng chủ (Tonic Key) từ hợp âm mở đầu hoặc hợp âm chiếm ưu thế
-    dominant_root = chords[0].chord if chords else "A#m7"
-    return chords, dominant_root
+    # Tính toán BPM tự nhiên chuẩn điệu Ballad từ độ dài ô nhịp trung bình
+    avg_measure_dur = (total_duration - boundaries[0]) / max(1, len(chords))
+    inferred_bpm = int(round(60.0 / (avg_measure_dur / 4.0)))
+    normalized_bpm = max(60, min(85, inferred_bpm))
+
+    dominant_root = chords[0].chord if chords else "A#m"
+    return chords, dominant_root, normalized_bpm
 
 
 @app.post("/transcribe", response_model=PianoTranscriptionResult)
@@ -228,7 +231,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
             )
 
         # 4. Phân tích vòng hợp âm chuẩn nhạc lý dựa trên nốt trầm và hòa thanh
-        chords, dominant_key = analyze_chord_progression(sorted_notes, total_duration, bpm)
+        chords, dominant_key, bpm = analyze_chord_progression(sorted_notes, total_duration, bpm)
 
         # 5. Phân đoạn cấu trúc bài hát (Sections)
         sections: List[PianoSectionSegment] = []
