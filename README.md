@@ -216,3 +216,5 @@ If you find this project helpful or inspiring, consider supporting its developme
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
+
+<!-- verified: 2026-11 -->
